@@ -2,13 +2,13 @@
     \file logger.h
     \brief Logger library interface
     \version 1.0
-    \date Jul 13 2024
+    \date 13 Jul 2024
     
     These functions provide methods for oppenening logging session
     and log into choosed file
 
     IDENTIFICATION
-        src/include/logger/logger.h
+        src/backend/logger/logger.h
 */
 
 
@@ -19,10 +19,10 @@
     Log levels are informational only.  They do not affect program flow.
 */
 enum LogLevel {
-    LOG_DEBUG = 1, 
-    LOG_INFO,
-    LOG_WARNING,
-    LOG_ERROR
+    LOG_DEBUG = 1, ///< low level messages
+    LOG_INFO, ///< traces and meta information (could be substitution for stderr)
+    LOG_WARNING, ///< messages that describe possibly incorrect behavior with saving invariant
+    LOG_ERROR ///< messages about system errors
 };
 
 /*!
@@ -32,8 +32,8 @@ enum LogLevel {
     Log part are informational only.  They do not affect program flow.
 */
 enum LogPart {
-    LOG_PRIMARY = 0, ///< use one-string message
-    LOG_DETAIL, ///< there you can describe circumstances
+    LOG_PRIMARY = 0, ///< Use one-string message
+    LOG_DETAIL, ///< There you can describe circumstances
     LOG_HINT ///< Hint (not guaranteed correct) about how to fix the problem
 };
 

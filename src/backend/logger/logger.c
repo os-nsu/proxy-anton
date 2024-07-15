@@ -2,7 +2,7 @@
     \file logger.c
     \brief Logger library source code
     \version 1.0
-    \date Jul 13 2024
+    \date 13 Jul 2024
     
     These functions provide methods for oppenening logging session
     and log into choosed file (path is set in LoggerData struct by initLogger function)
