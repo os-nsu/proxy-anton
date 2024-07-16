@@ -8,7 +8,7 @@
     and log into choosed file
 
     IDENTIFICATION
-        src/backend/logger/logger.h
+        src/include/logger.h
 */
 
 
@@ -49,14 +49,14 @@ int initLogger(char* path);
     It opens file connection with log file.
     \return 0 if success, -1 and sets errno if error
 */
-int openSession();
+int openLogSession();
 
 /*!
     It closes file connection with log file.
     Use this function before next (but not first) logger initialization.
     \return 0 if success, -1 and sets errno if error
 */
-int closeSession();
+int closeLogSession();
 
 /*!
     It closes file connection with log file and free other meta data about session.
@@ -66,7 +66,7 @@ int destructLogger();
 
 /// @brief Checks if now session is openned
 /// @return 1 if session is openned, 0 else
-int checkSession();
+int checkLogSession();
 
 /*!
     It log message(format string with variadic list of arguments) into log file.

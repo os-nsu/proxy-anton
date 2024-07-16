@@ -20,11 +20,13 @@
     
     sample.conf:
     max_size=42
-    min_level=0.054
+    min_level=0.054 #comment-part
+    group. = "system" #change group to "system"
     the_best_subjects={"math", "programming"}
+    #that part also commented
 
     IDENTIFICATION
-        src/backend/config/condig.h
+        src/include/config.h
 */
 
 
@@ -51,11 +53,23 @@ union Value{
 
     Each configuration parameter is array of (long long / double / string) elements.
 */
-enum ParameterType{
+enum ParameterType {
     T_LONG = 1, 
     T_DOUBLE, 
     T_STRING 
 };
+
+/*!
+    \struct CATFollowerData
+    \brief high-level representation for pointer to array of enum Value
+
+    Parameter's array of values has size at first position. This struct
+    solve this problem: it has 2 pointers: to size and to data.
+*/
+typedef struct CATFollowerData {
+    long long int *size;
+    union Value *data;
+} CATFollower;
 
 
 /*!
@@ -68,17 +82,18 @@ int initCAT();
 /*!
     \brief Creates new configuration parameter
     Creates new configuration parameter in set group or create new group
+    All parameters will be copied therefore don't forget to free arguments.
     \param[in] groupName Name of parameter's group
     \param[in] name Name of parameter
     \param[in] type Parater's type
     \param[in] count Count of parameter's values (each parameter is array)
     \param[in] values Boot values of parameter
-    \param[out] follower Pointer to pointer which will follows parameter
+    \param[out] follower Pointer to CATFollower which will follows parameter
     \param[in] description Parameter's description
     \return 0 if success, -1 and sets errno else
 */
-int createCATParameter(char *groupName, char *name, enum ParameterType type, int count, union Value *values,
-                       union Value **follower, char *description);
+int createCATParameter(const char *groupName, const char *name, enum ParameterType type, int count, const union Value *values,
+                       CATFollower *follower, const char *description);
 
 
 /*!
@@ -86,9 +101,9 @@ int createCATParameter(char *groupName, char *name, enum ParameterType type, int
     Checks if parameter has no followers when delete parameter.
     If group or parameter doesn't exist when success result.
     \param[in] groupName Name of group
-    \param[in]
+    \param[in] name Parameter's name
 */
-int deleteCATParameter(char *groupName, char *name);
+int deleteCATParameter(const char *groupName, const char *name);
 
 
 /*!
@@ -99,7 +114,7 @@ int deleteCATParameter(char *groupName, char *name);
     \param[in] blockMode New state of block mode
     \return 0 if success, -1 and sets errno else
 */
-int setGroupBlockMode(char *group, int blockMode);
+int setGroupBlockMode(const char *group, int blockMode);
 
 
 /*!
@@ -108,7 +123,7 @@ int setGroupBlockMode(char *group, int blockMode);
     \param[in] name Parameter's name
     \return cstring (description) if success , NULL and sets errno else
 */
-char *getCATParamDescr(char *group, char *name);
+char *getCATParamDescr(const char *group, const char *name);
 
 
 /*!
@@ -120,7 +135,7 @@ char *getCATParamDescr(char *group, char *name);
     \param[in] values New values of parameter
     \return 0 if success, -1 and sets errno else
 */
-int updateCATParameter(char *group, char *name, int count, union Value *values);
+int updateCATParameter(const char *group, const char *name, int count, const union Value *values);
 
 
 
@@ -128,10 +143,10 @@ int updateCATParameter(char *group, char *name, int count, union Value *values);
     \brief adds new follower to parameter
     \param[in] group Group's name
     \param[in] name Parameter's name
-    \param[in] follower pointer to pointer which will follow CAT parameter
+    \param[in] follower pointer to CATFollower which will follow CAT parameter
     \return 0 if success, -1 and sets errno else
 */
-int addFollowerToCAT(char *group, char *name, union Value **follower);
+int addFollowerToCAT(const char *group, const char *name, CATFollower *follower);
 
 
 /*!
@@ -139,7 +154,7 @@ int addFollowerToCAT(char *group, char *name, union Value **follower);
     Removes follower and change it value to NULL
     \param[in] group Group's name
     \param[in] name Parameter's name
-    \param[in] follower pointer to pointer which will be deleted from followers
+    \param[in] follower pointer to CATFolower which will be deleted from followers
     \return 0 if success, -1 and sets errno else
 */
-int removeFollowerFromCAT(char *group, char *name, union Value **follower);
+int removeFollowerFromCAT(const char *group, const char *name, CATFollower *follower);

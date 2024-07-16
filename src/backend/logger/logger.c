@@ -10,12 +10,12 @@
     IDENTIFICATION
         src/backend/logger/logger.c
 */
-#include "logger.h"
+#include "../../include/logger.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-
+#include <errno.h>
 
 /*!
     \struct LoggerData
@@ -34,7 +34,7 @@ struct LoggerData mainLogger = {NULL, NULL, 0}; ///< Main and only one logger
 /*!
     It intializes logger data (path to current log file). So you could init logger only when no one session is openned
     \param[in] path Path to log file
-    \return 0 if success, -1 and sets errno if error
+    \return 0 if success, -1  and sets errno else
 */
 int initLogger(char* path){
 
@@ -54,9 +54,9 @@ int initLogger(char* path){
 
 /*!
     It opens file connection with log file.
-    \return 0 if success, -1 and sets errno if error
+    \return 0 if success, -1  and sets errno else
 */
-int openSession() {
+int openLogSession() {
     
     if (mainLogger.logFilePath == NULL) {
         return -1;
@@ -78,15 +78,17 @@ int openSession() {
 /*!
     It closes file connection with log file.
     Use this function before next (but not first) logger initialization.
-    \return 0 if success, -1 and sets errno if error
+    \return 0 if success, -1  and sets errno else
 */
-int closeSession() {
+int closeLogSession() {
     
     if (mainLogger.session == NULL) {
+        errno = EACCES;
         return -1;
     }
 
     if (fclose(mainLogger.session) == EOF) {
+        errno = EBADF;
         return -1;
     }
 
@@ -97,15 +99,16 @@ int closeSession() {
 
 /*!
     It closes file connection with log file and free other meta data about session.
-    \return 0 if success, -1 and sets errno if error
+    \return 0 if success, -1 and sets errno else
 */
 int destructLogger() {
 
     if (mainLogger.session != NULL && !mainLogger.isSessionOpen){
+        errno = EACCES;
         return -1;
     }
 
-    if(closeSession() != 0){
+    if(closeLogSession() != 0){
         return -1;
     }
 
@@ -118,7 +121,7 @@ int destructLogger() {
 
 
 
-int checkSession(){
+int checkLogSession(){
     return mainLogger.isSessionOpen;
 }
 
@@ -130,11 +133,12 @@ int checkSession(){
     \param[in] part Part of the log (needed for custom log reports)
     \param[in] format Message
     \param[in] other variadic list of arguments for message string
-    \return 0 if success, -1 and sets errno if error
+    \return 0 if success, -1 and sets errno
 */
 int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...) {
     
     if (!mainLogger.isSessionOpen){
+        errno = EACCES;
         return -1;
     }
 
@@ -155,6 +159,7 @@ int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...) {
         msgLvl = "ERROR: ";
         break;
     default:
+    errno = EBADMSG;
         return -1;
     }
 
@@ -172,6 +177,7 @@ int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...) {
         msgPart = "HINT:    ";
         break;
     default:
+        errno = EBADMSG;
         return -1;
     }
 
@@ -201,6 +207,7 @@ int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...) {
 */
 int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...) {
     if (!mainLogger.isSessionOpen){
+        errno = EACCES;
         return -1;
     }
 
@@ -221,6 +228,7 @@ int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...) {
         msgLvl = "ERROR: ";
         break;
     default:
+    errno = EBADMSG;
         return -1;
     }
 

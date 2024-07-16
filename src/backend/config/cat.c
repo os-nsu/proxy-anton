@@ -1,6 +1,6 @@
 /*!
     \file config.c
-    \brief This file contains CAT and config parser implementation
+    \brief This file contains CAT implementation
     \version 1.0
     \date 15 Jul 2024
 
@@ -10,26 +10,13 @@
     functions needed for work with configuration file .conf.
     Whole kernel configuration parameters belong to "kernel" group
 
-    ome information about config.conf:
-
-    There are only string in format "key=value"
-
-    key - string that consist only of english letters and symbols '_'.
-
-    value could be single or array (array denoted by '{', '}', values in array separated
-    by commas). Value could have one of three types: long long, double or string.
     BTW: each parameter in CAT is array. The first value in array is length of the array
-    
-    sample.conf:
-    max_size=42
-    min_level=0.054
-    the_best_subjects={"math", "programming"}
 
     IDENTIFICATION
-        src/backend/config/condig.c
+        src/backend/config/cat.c
 */
 
-#include "config.h"
+#include "../../include/config.h"
 #include <complex.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,7 +37,7 @@
     to resolve addr ptr type.
 */
 struct Follower {
-    union Value **addr;
+    CATFollower *addr;
     struct Follower *next;  
 };
 
@@ -76,7 +63,14 @@ typedef struct ParameterData {
 void freeParameter(Parameter *parameter) {
     free(parameter->group);
     free(parameter->name);
-    free(parameter->description);
+    if (parameter->description) {
+        free(parameter->description);
+    }
+    if(parameter->type == T_STRING){
+        for (int i = 1; i <= parameter->values[0].lngf; i++) {
+            free(parameter->values[i].strf);
+        }
+    }
     free(parameter->values);
     struct Follower *curFollower, *delFollower;
     curFollower = parameter->head;
@@ -97,27 +91,40 @@ void freeParameter(Parameter *parameter) {
     \param[in] values Values of parameter
     \return 0 if success, -1 and sets errno else
 */
-int updateParameter(Parameter *param, int newCount, union Value *values) {
+int updateParameter(Parameter *param, int newCount, const union Value *values) {
     
     if (!param || !values){
         return -1;
     }
-
+    
     if(param->values[0].lngf == newCount) {
+        
         for(int i = 1; i <= newCount; ++i) {
             param->values[i] = values[i - 1];
         }
     } else {
+        if(param->type == T_STRING) {
+            for (int i = 1; i <= param->values[0].lngf; i++) {
+                free(param->values[i].strf);
+            }
+        }
         free(param->values);
         param->values = (union Value *)malloc(sizeof(union Value) * (newCount + 1));
         param->values[0].lngf = newCount;
         for(int i = 1; i <= newCount; ++i) {
-            param->values[i] = values[i - 1];
+            if(param->type != T_STRING){
+                *(param->values + i) = values[i - 1];    
+            } else {
+                (param->values + i)->strf = (char *)calloc(strlen(values[i - 1].strf) + 1, sizeof(char));
+                strcpy((param->values + i)->strf, values[i-1].strf);
+            }
         }
         /*NOTIFY FOLLOWERS*/
         struct Follower *curFollower = param->head;
         while (curFollower) {
-            *curFollower->addr = param->values;
+            curFollower->addr->size = (long long *)param->values;
+            curFollower->addr->data = param->values + 1;
+            curFollower = curFollower->next;
         }
     }
     return 0;
@@ -127,15 +134,16 @@ int updateParameter(Parameter *param, int newCount, union Value *values) {
     \brief adds new follower to parameter
     Adds pointer in followers list and update this pointer
     \param[in] param Pointer to parameter
-    \param[out] followerVar Pointer to pointer which will follow parameter
+    \param[out] followerVar Pointer to CATFollower structure which will follow parameter
     \return 0 if success, -1 else
 */
-int addFollowerToParameter(Parameter *param, union Value **followerVar) {
+int addFollowerToParameter(Parameter *param, CATFollower *followerVar) {
     if(!param || !followerVar){
         return -1;
     }
     /*SET FOLLOWERVAR VALUE*/
-    *followerVar = param->values;
+    followerVar->size = (long long *)param->values;
+    followerVar->data = param->values + 1;
 
     /*ADD FOLLOWER IN LIST*/
     struct Follower *follower = (struct Follower *)malloc(sizeof(struct Follower));
@@ -168,15 +176,16 @@ int addFollowerToParameter(Parameter *param, union Value **followerVar) {
     Change value of follower to NULL and removes it from list.
     Success if removed from list or nothing to remove.
     \param[in] param Pointer to parameter
-    \param[out] followerVar Follower pointer that should be removed
+    \param[out] followerVar pointer to CATFollower that should be removed
     \return 0 if success, -1 and sets errno else
 */
-int removeFollowerFromParameter(Parameter *param, union Value **followerVar) {
+int removeFollowerFromParameter(Parameter *param, CATFollower *followerVar) {
     if(!param || !followerVar){
         return -1;
     }
 
-    *followerVar = NULL;
+    followerVar->data = NULL;
+    followerVar->size = NULL;
 
     /*DELETE ELEMENT FROM ONE-DIRECTION LINKED LIST*/
     if(param->head == NULL){
@@ -208,6 +217,12 @@ int removeFollowerFromParameter(Parameter *param, union Value **followerVar) {
     \return cstring - copy of parameter's description
 */
 char *getParamDescr(Parameter *param) {
+    if(!param) {
+        return NULL;
+    }
+    if(!param->description) {
+        return NULL;
+    }
     char *result = (char *)malloc(sizeof(char) * strlen(param->description));
     strcpy(result, param->description);
     return result;
@@ -221,7 +236,7 @@ char *getParamDescr(Parameter *param) {
     \param[in] str value
     \return hash that is unsigned long
 */
-unsigned long hashString(char* str) {
+unsigned long hashString(const char* str) {
     unsigned long hash = 0;
     int c;
 
@@ -267,7 +282,7 @@ void freeGroup(GroupParam *group) {
     \param[in] name Name of parameter
     \return pointer to parameter if success, NULL else
 */
-Parameter *findParameterInGroup(GroupParam *group, char *name) {
+Parameter *findParameterInGroup(GroupParam *group, const char *name) {
     long int index = hashString(name) % group->size;
     struct ParameterNode *curParamNode = group->table[index];
     while(curParamNode) {
@@ -290,26 +305,25 @@ Parameter *findParameterInGroup(GroupParam *group, char *name) {
     \param[in] type Type of parmeter's values
     \param[in] values Values of parameters (each parameter is array)
     \param[in] count Count of values
-    \param[out] follower Pointer to pointer which will follow parameter's value
+    \param[out] follower Pointer to CATFollower which will follow parameter's value
     \param[in] description Description of parameter
     \return 0 if success, -1 and sets errno else 
 */
-int addParameterToGroup(GroupParam *group, char *name, enum ParameterType type,
-    union Value *values, int count, union Value **follower, char *description) {
+int addParameterToGroup(GroupParam *group, const char *name, enum ParameterType type,
+    const union Value *values, int count, CATFollower *follower, const char *description) {
     /*CHECK THAT DATA IS CORRECT*/
-    if(!group || !name || !values || !follower || !count || !type){
+    if(!group || !name || !values || !count || !type){
         return -1;
     }
 
-    char c;
-    while((c = *name++)){
-        if(c == '.'){
+    const char *c = name;
+    while(*c){
+        if(*c++ == '.'){
             return -1;
         }
     }
-
+    
     /*CHECK ABILITY TO ADDING*/
-
     if (findParameterInGroup(group, name)) {
         return -1;
     }
@@ -320,22 +334,34 @@ int addParameterToGroup(GroupParam *group, char *name, enum ParameterType type,
     
     /*INIT PARAMETER*/
     Parameter *param = (Parameter *)malloc(sizeof(Parameter));
+    param->group = (char *)calloc(strlen(group->name) + 1, sizeof(char));
     strcpy(param->group,group->name);
+    param->name = (char *)calloc(strlen(name) + 1, sizeof(char));
     strcpy(param->name,name);
     param->type = type;
-
     param->values = (union Value*)malloc(sizeof(union Value*) * (count + 1));
     param->values[0].lngf = count;
     for (int i = 1; i <= count; ++i) {
-        *(param->values + i) = values[i - 1];
+        if(param->type != T_STRING){
+            *(param->values + i) = values[i - 1];    
+        } else {
+            (param->values + i)->strf = (char *)calloc(strlen(values[i - 1].strf) + 1, sizeof(char));
+            strcpy((param->values + i)->strf, values[i-1].strf);
+        }
     }
 
-    struct Follower *head = (struct Follower*)malloc(sizeof(struct Follower));
-    head->addr = follower;
-    head->next = NULL;
-    param->head = head;
-
-    strcpy(param->description, description);
+    if (follower){
+        param->head = NULL;
+        addFollowerToParameter(param, follower);
+    } else {
+        param->head = NULL;
+    }
+    if(description){
+        param->description = (char *)calloc(strlen(description) + 1, sizeof(char));
+        strcpy(param->description, description);
+    } else {
+        param->description = NULL;
+    }
 
     /*ADD PARAMETER IN HASH TABLE*/
     struct ParameterNode *node = (struct ParameterNode *)malloc(sizeof(struct ParameterNode));
@@ -343,6 +369,7 @@ int addParameterToGroup(GroupParam *group, char *name, enum ParameterType type,
     node->next = NULL;
     
     long int index = hashString(name) % group->size;
+    
     if(!group->table[index]){
         group->table[index] = node;
     } else {
@@ -352,9 +379,7 @@ int addParameterToGroup(GroupParam *group, char *name, enum ParameterType type,
         }
         curParamNode->next = node;
     }
-
     group->curCount++;
-
     return 0;
 }
 
@@ -368,7 +393,7 @@ int addParameterToGroup(GroupParam *group, char *name, enum ParameterType type,
     \param[in] name Name of parameter
     \return 0 if success, -1 and sets errno else
 */
-int removeParameterFromGroup(GroupParam *group, char * name) {
+int removeParameterFromGroup(GroupParam *group, const char * name) {
     /*CHECK THAT ARGUMENTS ARE CORRECT*/
     if (!group || !name){
         return -1;
@@ -378,14 +403,16 @@ int removeParameterFromGroup(GroupParam *group, char * name) {
     if (group->isBlocked){
         return -1;
     }
-
+    
     long int index = hashString(name) % group->size;
 
     if(!group->table[index]){
+        
         /*NOTHING TO DO*/
     } else if (!strcmp(group->table[index]->data->name, name)){
         /*CHECK THAT PARAMETER HAS NO FOLLOWERS*/
         if (group->table[index]->data->head) {
+            printf("inside %p\n",group->table[index]->data->head);
             return -1;
         }
         /*REMOVE AND FREE PARAMETER'S NODE*/
@@ -452,13 +479,14 @@ GroupsTable CAT = {NULL, 100, 0, 0}; ///< GLOBAL MAIN CONFIGURATION ACCESS TABLE
     \brief creates new group in CAT
 
     It checks ability to create new group and do this.
+    All parameters will be copied therefore don't forget to free arguments.
     \param[in] name Name of the group
     \param[in] size Size of group's hash table
     \param[in] blockMode Boot value of block mode
     \return pointer to new group or NULL and sets errno
     if this group already exists or other error occured
 */
-GroupParam *createGroup(char *name, int size, int blockMode) {
+GroupParam *createGroup(const char *name, int size, int blockMode) {
     /*CHECK THAT ARGUMENTS ARE CORRECT*/
     if (!CAT.isAllocated) {
         return NULL;
@@ -470,6 +498,7 @@ GroupParam *createGroup(char *name, int size, int blockMode) {
 
     /*CREATE GROUP*/
     GroupParam *group = (GroupParam *)malloc(sizeof(GroupParam));
+    group->name = (char *)calloc(strlen(name) + 1, sizeof(char));
     strcpy(group->name,name);
     group->isBlocked = blockMode;
     group->size = size;
@@ -501,7 +530,7 @@ GroupParam *createGroup(char *name, int size, int blockMode) {
     \param[in] name Name of group
     \return Pointer to group if it found group, NULL and sets errno else
 */
-GroupParam *findGroup(char *name) {
+GroupParam *findGroup(const char *name) {
     /*CHECK THAT ARGUMENTS ARE CORRECT*/
     if(!CAT.isAllocated) {
         return NULL;
@@ -531,7 +560,7 @@ GroupParam *findGroup(char *name) {
     \param[in] name Name of group
     \returns 0 if success, -1 and sets errno else
 */
-int destroyGroup(char* name) {
+int destroyGroup(const char* name) {
     /*CHECK ABILITY*/
     if (!CAT.isAllocated) {
         return -1;
@@ -605,7 +634,7 @@ int setBlockMode(GroupParam *group, int blockMode) {
     \param[in] name Parameter's name
     \returns pointer to parameter if success, NULL end sets errno else
 */
-Parameter *getCATParam(char *group, char *name){
+Parameter *getCATParam(const char *group, const char *name){
     if (!group || !name) {
         return NULL;
     }
@@ -639,19 +668,20 @@ int initCAT() {
 
 /*!
     \brief Creates new configuration parameter
-    Creates new configuration parameter in set group or create new group
+    Creates new configuration parameter in set group or create new group.
+    All parameters will be copied therefore don't forget to free arguments.
     \param[in] groupName Name of parameter's group
     \param[in] name Name of parameter
     \param[in] type Parater's type
     \param[in] count Count of parameter's values (each parameter is array)
     \param[in] values Boot values of parameter
-    \param[out] follower Pointer to pointer which will follows parameter
+    \param[out] follower Pointer to CATFollower which will follows parameter
     \param[in] description Parameter's description
     \return 0 if success, -1 and sets errno else
 */
-int createCATParameter(char *groupName, char *name, enum ParameterType type, int count, union Value *values,
-                       union Value **follower, char *description) {    
-    if (!groupName || !name || !values || !follower) {
+int createCATParameter(const char *groupName, const char *name, enum ParameterType type, int count, const union Value *values,
+                       CATFollower *follower, const char *description) {    
+    if (!groupName || !name || !values ) {
 
         return -1;
     }
@@ -684,9 +714,9 @@ int createCATParameter(char *groupName, char *name, enum ParameterType type, int
     Checks if parameter has no followers when delete parameter.
     If group or parameter doesn't exist when success result.
     \param[in] groupName Name of group
-    \param[in]
+    \param[in] name Parameter's name
 */
-int deleteCATParameter(char *groupName, char *name) {
+int deleteCATParameter(const char *groupName, const char *name) {
     if (!groupName || !name) {
 
         return -1;
@@ -698,7 +728,7 @@ int deleteCATParameter(char *groupName, char *name) {
     if (!foundGroup) { ///< \todo check errno
         return 0;
     }
-
+    printf("%s - found group name\n", foundGroup->name);
     if (removeParameterFromGroup(foundGroup, name)) {
         return -1;
     }
@@ -715,7 +745,7 @@ int deleteCATParameter(char *groupName, char *name) {
     \param[in] blockMode New state of block mode
     \return 0 if success, -1 and sets errno else
 */
-int setGroupBlockMode(char *group, int blockMode) {
+int setGroupBlockMode(const char *group, int blockMode) {
     if (!group) {
         return -1;
     }
@@ -734,9 +764,9 @@ int setGroupBlockMode(char *group, int blockMode) {
     \brief gets parameter's description
     \param[in] group Group's name
     \param[in] name Parameter's name
-    \return cstring (description) if success , NULL and sets errno else
+    \return cstring (description) maybe NULL if success , NULL and sets errno else
 */
-char *getCATParamDescr(char *group, char *name) {
+char *getCATParamDescr(const char *group, const char *name) {
     Parameter *param = getCATParam(group, name);
     if (!param){
         return NULL;
@@ -754,7 +784,7 @@ char *getCATParamDescr(char *group, char *name) {
     \param[in] values New values of parameter
     \return 0 if success, -1 and sets errno else
 */
-int updateCATParameter(char *group, char *name, int count, union Value *values) {
+int updateCATParameter(const char *group, const char *name, int count, const union Value *values) {
     if (!values || !count) {
         return -1;
     }
@@ -762,6 +792,7 @@ int updateCATParameter(char *group, char *name, int count, union Value *values) 
     if (!param){
         return -1;
     }
+    
     return updateParameter(param, count, values);
 }
 
@@ -769,10 +800,10 @@ int updateCATParameter(char *group, char *name, int count, union Value *values) 
     \brief adds new follower to parameter
     \param[in] group Group's name
     \param[in] name Parameter's name
-    \param[in] follower pointer to pointer which will follow CAT parameter
+    \param[in] follower pointer to CATFollower which will follow CAT parameter
     \return 0 if success, -1 and sets errno else
 */
-int addFollowerToCAT(char *group, char *name, union Value **follower) {
+int addFollowerToCAT(const char *group, const char *name, CATFollower *follower) {
     Parameter *param = getCATParam(group, name);
     if (!param) {
         return -1;
@@ -786,13 +817,15 @@ int addFollowerToCAT(char *group, char *name, union Value **follower) {
     Removes follower and change it value to NULL
     \param[in] group Group's name
     \param[in] name Parameter's name
-    \param[in] follower pointer to pointer which will be deleted from followers
+    \param[in] follower pointer to CATFollower which will be deleted from followers
     \return 0 if success, -1 and sets errno else
 */
-int removeFollowerFromCAT(char *group, char *name, union Value **follower) {
+int removeFollowerFromCAT(const char *group, const char *name, CATFollower *follower) {
     Parameter *param = getCATParam(group, name);
     if (!param) {
         return -1;
     }
     return removeFollowerFromParameter(param, follower);
 }
+
+
