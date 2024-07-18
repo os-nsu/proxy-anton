@@ -27,6 +27,44 @@
     IMPLEMENTATION OF CAT (Configuration Access Table) SYSTEM
 */
 
+/*STRUCT ADVERTISEMENTS*/
+struct Follower;
+typedef struct ParameterData Parameter;
+struct ParameterNode;
+typedef struct ParametersGroupData GroupParam;
+struct GroupNode;
+typedef struct GroupsTableData GroupsTable;
+
+
+/*FUNCTON ADVERTISEMENTS*/
+void freeParameter(Parameter *parameter);
+int updateParameter(Parameter *param, int newCount, const union Value *values);
+int addFollowerToParameter(Parameter *param, CATFollower *followerVar);
+int removeFollowerFromParameter(Parameter *param, CATFollower *followerVar);
+char *getParamDescr(Parameter *param);
+unsigned long hashString(const char* str);
+void freeGroup(GroupParam *group);
+Parameter *findParameterInGroup(GroupParam *group, const char *name);
+int addParameterToGroup(GroupParam *group, const char *name, enum ParameterType type,
+    const union Value *values, int count, CATFollower *follower, const char *description);
+int removeParameterFromGroup(GroupParam *group, const char * name);
+GroupParam *createGroup(const char *name, int size, int blockMode);
+GroupParam *findGroup(const char *name);
+int destroyGroup(const char* name);
+int setBlockMode(GroupParam *group, int blockMode);
+Parameter *getCATParam(const char *group, const char *name);
+int initCAT(void);
+int createCATParameter(const char *groupName, const char *name, enum ParameterType type, int count, const union Value *values,
+                       CATFollower *follower, const char *description);
+int deleteCATParameter(const char *groupName, const char *name);
+int setGroupBlockMode(const char *group, int blockMode);
+char *getCATParamDescr(const char *group, const char *name);
+int updateCATParameter(const char *group, const char *name, int count, const union Value *values);
+int addFollowerToCAT(const char *group, const char *name, CATFollower *follower);
+int removeFollowerFromCAT(const char *group, const char *name, CATFollower *follower);
+
+
+
 /*!
     \struct Follower
     \brief follower of parameter value
@@ -50,14 +88,14 @@ struct Follower {
     in CAT is array), pointer to values, linked list of followers, and meta
     info like first and second hash keys and description
 */
-typedef struct ParameterData {
+struct ParameterData {
     struct Follower* head; ///< head of followers list
     char *group; 
     char *name; ///< unique only in group
     char *description;
     union Value *values; ///< first element in array alwais is count of elements
     enum ParameterType type;
-}  Parameter;
+};
 
 
 void freeParameter(Parameter *parameter) {
@@ -262,13 +300,13 @@ struct ParameterNode {
     Contains hash table of parameters. In block mode you couldn't delete or add
     new parameters in table, but you are able to change parameters
 */
-typedef struct ParametersGroupData {
+struct ParametersGroupData {
     char *name;
     struct ParameterNode **table;
     int size;
     int curCount; ///< current count of table elements
     int isBlocked;
-} GroupParam;
+};
 
 void freeGroup(GroupParam *group) {
     free(group->name);
@@ -462,12 +500,12 @@ struct GroupNode {
 
     Hash table that contains groups of configuration parameters.
 */
-typedef struct GroupsTableData {
+struct GroupsTableData {
     struct GroupNode **table;
     int size;  
     int curCount; ///< current count of parmeter groups
     int isAllocated; ///< flag means that buffer table allocated and exists
-} GroupsTable;
+};
 
 
 
@@ -634,7 +672,7 @@ int setBlockMode(GroupParam *group, int blockMode) {
     \param[in] name Parameter's name
     \returns pointer to parameter if success, NULL end sets errno else
 */
-Parameter *getCATParam(const char *group, const char *name){
+Parameter *getCATParam(const char *group, const char *name) {
     if (!group || !name) {
         return NULL;
     }
@@ -651,12 +689,11 @@ Parameter *getCATParam(const char *group, const char *name){
 
 /*USER INTERFACE IMPLEMENTATION*/
 
-
 /*!
     \brief initialize CAT
     Use this function at the beginning of session to allocate memory for CAT.
 */
-int initCAT() {
+int initCAT(void) {
     CAT.table = (struct GroupNode **)calloc(CAT.size, sizeof(struct GroupNode *));
     if (!CAT.table){
         return -1;

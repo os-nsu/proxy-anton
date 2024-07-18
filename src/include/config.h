@@ -29,6 +29,8 @@
         src/include/config.h
 */
 
+#ifndef CONFIG_H
+#define CONFIG_H
 
 /*
     DEFENITION  TYPES  AND FUNCTIONS OF CAT (Configuration Access Table) SYSTEM
@@ -158,3 +160,19 @@ int addFollowerToCAT(const char *group, const char *name, CATFollower *follower)
     \return 0 if success, -1 and sets errno else
 */
 int removeFollowerFromCAT(const char *group, const char *name, CATFollower *follower);
+
+
+
+/*PARSER INTERFACE*/
+
+/*!
+    \brief Parses config file
+    
+    Rules for config file described in config.h description. If logger is active,
+    parser will write in log.
+    \param[in] path Path to configuration file
+    \return 0 if success, -1 and sets errno else
+*/
+int parseConfig(char* path);
+
+#endif    // CONFIG_H

@@ -17,6 +17,18 @@
 #include <stdarg.h>
 #include <errno.h>
 
+/*STRUCT ADVERTISEMENTS*/
+struct LoggerData;
+
+/*FUNCTION ADVERTISEMENTS*/
+int initLogger(char* path);
+int openLogSession(void);
+int closeLogSession(void);
+int destructLogger(void);
+int checkLogSession(void);
+int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...);
+int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...);
+
 /*!
     \struct LoggerData
     \brief struct that describes info needed for logging session
@@ -56,7 +68,7 @@ int initLogger(char* path){
     It opens file connection with log file.
     \return 0 if success, -1  and sets errno else
 */
-int openLogSession() {
+int openLogSession(void) {
     
     if (mainLogger.logFilePath == NULL) {
         return -1;
@@ -80,7 +92,7 @@ int openLogSession() {
     Use this function before next (but not first) logger initialization.
     \return 0 if success, -1  and sets errno else
 */
-int closeLogSession() {
+int closeLogSession(void) {
     
     if (mainLogger.session == NULL) {
         errno = EACCES;
@@ -101,7 +113,7 @@ int closeLogSession() {
     It closes file connection with log file and free other meta data about session.
     \return 0 if success, -1 and sets errno else
 */
-int destructLogger() {
+int destructLogger(void) {
 
     if (mainLogger.session != NULL && !mainLogger.isSessionOpen){
         errno = EACCES;
@@ -121,7 +133,7 @@ int destructLogger() {
 
 
 
-int checkLogSession(){
+int checkLogSession(void){
     return mainLogger.isSessionOpen;
 }
 
@@ -210,7 +222,7 @@ int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...) {
         errno = EACCES;
         return -1;
     }
-
+    
     const char * msgLvl;
 
     switch (lvl)
@@ -231,44 +243,55 @@ int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...) {
     errno = EBADMSG;
         return -1;
     }
-
+    
+    const char *primaryLvl = "";
     const char *primaryLbl = "";
     const char *firstLF = "";
 
     if (primary != NULL){
+        primaryLvl = msgLvl;
         primaryLbl = "PRIMARY:    ";
         firstLF = "\n";
+    } else {
+        primary = "";
     }
 
+    const char *detailLvl = "";
     const char *detailLbl = "";
     const char *secondLF = "";
 
     if (detail != NULL) {
+        detailLvl = msgLvl;
         detailLbl =  "DETAIL:    ";
         secondLF = "\n";
+    } else {
+        detail = "";
     }
 
+    const char *hintLvl = "";
     const char *hintLbl = "";
     const char *thirdLF = "";
 
     if (hint != NULL) {
+        hintLvl = msgLvl;
         hintLbl = "HINT:    ";
         thirdLF = "\n";
+    } else {
+        hint = "";
     }
 
     ///< Allocate and fill report string 
-
-    int reportLen = strlen(msgLvl) + strlen(primaryLbl) + strlen(primary) + strlen(firstLF)\
-        + strlen(msgLvl) + strlen(detailLbl) + strlen(detail) + strlen(secondLF)\
-        + strlen(msgLvl) + strlen(hintLbl) + strlen(hint) + strlen(thirdLF);
+    
+    int reportLen = strlen(primaryLvl) + strlen(primaryLbl) + strlen(primary) + strlen(firstLF)\
+        + strlen(detailLvl) + strlen(detailLbl) + strlen(detail) + strlen(secondLF)\
+        + strlen(hintLvl) + strlen(hintLbl) + strlen(hint) + strlen(thirdLF) + 1;
 
     char *report = (char *)calloc(reportLen, sizeof(char));
-
     strcat(strcat(strcat(strcat(strcat(strcat(strcat(strcat(strcat(strcat(strcat(strcat\
-        (report, msgLvl), primaryLbl),primary),firstLF),\
-        msgLvl), detailLbl), detail), secondLF),\
-        msgLvl), hintLbl), hint), thirdLF);
-
+        (report, primaryLvl), primaryLbl),primary),firstLF),\
+        detailLvl), detailLbl), detail), secondLF),\
+        hintLvl), hintLbl), hint), thirdLF);
+    
     va_list ptr;
     va_start(ptr, hint);
 

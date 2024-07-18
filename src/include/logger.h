@@ -11,6 +11,8 @@
         src/include/logger.h
 */
 
+#ifndef LOGGER_H
+#define LOGGER_H
 
 /*!
     \enum LogLevel
@@ -90,3 +92,5 @@ int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...);
     \return 0 if success, -1 and sets errno if error
 */
 int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...);
+
+#endif    // LOGGER_H

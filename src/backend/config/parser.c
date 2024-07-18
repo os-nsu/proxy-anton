@@ -42,6 +42,10 @@
 
 /*PARSER IMPLEMENTATION*/
 
+/*FUNCTION ADVERTISEMENTS*/
+int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum ParameterType *rtype);
+int parseConfig(char* path);
+
 
 /*!
     \brief Parses 1 line from config
@@ -92,10 +96,9 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
     States curState = start;
 
     int beginKeyPos, endKeyPos;
-    char *keyName;
+    char *keyName = NULL;
     int beginCurValPos, endCurValPos;
-    char *currentValue;
-    enum ParameterType type;
+    enum ParameterType type = 0;
     int cntSlash = 0;
     union Value *values = calloc(1, sizeof(union Value));
     int size = 1;
@@ -108,22 +111,18 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
         char sym = *curSymPtr;
         switch (curState) {
         case comment: {
-            printf("comment\n");
             breakLoop = 3;
             break;
         }
         case error: {
-            printf("error\n");
             breakLoop = 2;
             break;
         }
         case finish: {
-            printf("finish\n");
             breakLoop = 1;
             break;
         }
         case start: {
-            printf("start %c\n", sym);
             if ((sym < 'A' && sym != ' ' && sym != '#') || (sym > 'Z' && sym < 'a' && sym != '_') || sym > 'z') {
                 curState = error;
             } else if (sym == '#') {
@@ -135,7 +134,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case key: {
-            printf("key %c\n", sym);
             if ((sym < 'A' && sym != ' ' && sym != '.' && sym != '=') || (sym > 'Z' && sym < 'a' && sym != '_') || sym > 'z') {
                 curState = error;
             } else if (sym == '.') {
@@ -162,7 +160,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesAfterKey: {
-            printf("spacesAfterKey %c\n", sym);
             if (sym != ' ' && sym != '=') {
                 curState = error;
             } else if (sym == '=') {
@@ -171,7 +168,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesBeforeValues: {
-            printf("spacesBeforeValues %c\n", sym);
             if (!((sym >= '0' && sym <= '9') || sym == '"' || sym == '{' || sym == ' ')) {
                 curState = error;
             } else if (sym != ' ') {
@@ -189,7 +185,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case valueDigit: {
-            printf("valueDigit %c\n", sym);
             if (!((sym >= '0' && sym <= '9') || sym == '.' || sym == ' ')) {
                 curState = error;
             } else if (sym == '.') {
@@ -212,7 +207,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case valueDouble: {
-            printf("valueDouble %c\n", sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' ')) {
                 curState = error;
             } else if (sym == ' ') {
@@ -225,7 +219,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case valueString: {
-            printf("valueString %c\n", sym);
             if (sym == '"') {
                 type = T_STRING;
                 endCurValPos = curPos;
@@ -249,13 +242,11 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case valueStringSlash: {
-            printf("valueStringSlash %c\n", sym);
             cntSlash++;
             curState = valueString;
             break;
         }
         case valueArray: {
-            printf("valueArray %c\n", sym);
             if (sym != ' ' && sym != '\"' && !(sym >= '0' && sym <= '9')){
                 curState = error;
             } else if (sym >= '0' && sym <= '9') {
@@ -269,7 +260,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextString: {
-            printf("nextString %c\n", sym);
             if (sym == '"') {
                 type = T_STRING;
                 endCurValPos = curPos;
@@ -298,13 +288,11 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextStringSlash: {
-            printf("nextStringSlash %c\n", sym);
             cntSlash++;
             curState = nextString;
             break;
         }
         case spacesAfterArraysString: {
-            printf("spacesAfterArrayString %c\n", sym);
             if(sym != ' ' && sym != ',' && sym != '}') {
                 curState = error;
             } else if (sym == ',') {
@@ -315,7 +303,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesBeforeArraysString: {
-            printf("spacesBeforeArrayString %c\n", sym);
             if(sym != ' ' && sym != '\"') {
                 curState = error;
             } else if (sym == '\"') {
@@ -326,7 +313,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextDigit: {
-            printf("nextDigit %c\n", sym);
             if (!(sym >= '0' && sym <= '9') && sym != '.' && sym != ' ' && sym != '}' && sym != ',') {
                 curState = error;
             } else if (sym == '.') {
@@ -360,7 +346,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesAfterArraysLong: {
-            printf("spacesAfterArrayLong %c\n", sym);
             if (sym != ' ' && sym != ',' && sym != '}') {
                 curState = error;
             } else if (sym == ',') {
@@ -371,7 +356,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesBeforeArraysLong: {
-            printf("spacesBeforeArraysLong %c\n", sym);
             if (sym != ' ' && !(sym >= '0' && sym <= '9')) {
                 curState = error;
             } else if (sym >= '0' && sym <= '9') {
@@ -381,7 +365,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextExpectedLong: {
-            printf("nextExpectedLong %c\n", sym);
             if (!(sym >= '0' && sym <= '9') && sym != ' ' && sym != '}' && sym != ',') {
                 curState = error;
             } else if (sym == ' ' || sym == '}' || sym == ',') {
@@ -408,7 +391,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextDouble: {
-            printf("nextDouble %c\n", sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' '  || sym == '}' || sym == ',')) {
                 curState = error;
             } else if (sym == ' ' || sym == '}' || sym == ',') {
@@ -432,7 +414,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesAfterArraysDouble: {
-            printf("spacesAfterArraysDouble %c\n", sym);
             if (sym != ' ' && sym != ',' && sym != '}') {
                 curState = error;
             } else if (sym == ',') {
@@ -443,7 +424,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case spacesBeforeArraysDouble: {
-            printf("spacesBeforeArraysDouble %c\n", sym);
             if (sym != ' ' && !(sym >= '0' && sym <= '9')) {
                 curState = error;
             } else if (sym >= '0' && sym <= '9') {
@@ -453,7 +433,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextExpectedDouble: {
-            printf("nextExpectedDouble %c\n", sym);
             if (!(sym >= '0' && sym <= '9') && sym != '.') {
                 curState = error;
             } else if (sym == '.') {
@@ -466,7 +445,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case nextExactlyDouble: {
-            printf("nextExactlyDouble %c\n", sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' '  || sym == '}' || sym == ',')) {
                 curState = error;
             } else if (sym == ' ' || sym == '}' || sym == ',') {
@@ -501,7 +479,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
     }
     //CHECK IF BROKE AND DIDN'T WROTE VALUE
     if(curState == valueDigit) {
-        printf("valueDigit\n");
         endCurValPos = curPos;
         /*DELETE LEFT NULLS*/
         while (line[beginCurValPos] == '0' && beginCurValPos < endCurValPos - 1){
@@ -512,7 +489,6 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
         curState = finish;
         breakLoop = 1;
     } else if (curState == valueDouble) {
-        printf("valueDouble\n");
         endCurValPos = curPos;
         values[countValues].dblf = strtod(line + beginCurValPos, NULL);
         countValues++;
@@ -571,7 +547,6 @@ int parseConfig(char* path) {
         return -1;
     }
     
-    int lineBeginPos = 0, lineEndPos = 0, curPos = 0;
     char *line = NULL;
     size_t len = 0;
 
@@ -585,7 +560,6 @@ int parseConfig(char* path) {
     strcpy(curGroup,"kernel"); //"kernel" - default group name in config
     int check = 0; // check result of getline
     int cntLine = 0;
-    int last = 0;
     while (!feof(config) && (check = getline(&line, &len, config))) {
         cntLine++;
         int size = 0;
@@ -624,3 +598,4 @@ int parseConfig(char* path) {
     free(curGroup);
     return 0;
 }
+
