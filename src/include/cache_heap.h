@@ -160,9 +160,9 @@ int setItemHeader(void *begin, int num, int offset, ItemHeader *header);
     \param[in] num Number of segment
     \param[in] header Pointer to item header value
     \param[in] value Pointer to item value
-    \return 0 if success, -1 if memory not enough, -2 else
+    \return offset if success, -1 if memory not enough, -2 else
 */
-int addItem(void *begin, int num, ItemHeader *header, void * value);
+unsigned int addItem(void *begin, int num, ItemHeader *header, void * value);
 
 
 /*!

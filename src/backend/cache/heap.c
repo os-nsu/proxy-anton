@@ -133,9 +133,9 @@ int setItemHeader(void *begin, int num, int offset, ItemHeader *header);
     \param[in] num Number of segment
     \param[in] header Pointer to item header value
     \param[in] value Pointer to item value
-    \return 0 if success, -1 if memory not enough, -2 else
+    \return offset if success, -1 if memory not enough, -2 else
 */
-int addItem(void *begin, int num, ItemHeader *header, void * value);
+unsigned int addItem(void *begin, int num, ItemHeader *header, void * value);
 
 
 /*!
@@ -267,12 +267,12 @@ unsigned int getPIHValueSize(int fd) {
         return -1;
     }
     int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_RDWR || flags & O_RDONLY )) {
+    if (!((flags & O_ACCMODE) == O_RDONLY || (flags & O_ACCMODE) == O_RDWR )) {
         return -1;
     }
     unsigned int result;
     int readSize = read(fd, &result, 4);
-    lseek(fd, -readSize, SEEK_CUR);
+    lseek(fd, -(int32_t)readSize, SEEK_CUR);
     if(readSize != 4) {
         return -1;
     }
@@ -284,11 +284,11 @@ int setPIHValueSize(int fd, unsigned int size) {
         return -1;
     }
     int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_RDWR || flags & O_WRONLY )) {
+    if (!((flags & O_ACCMODE) == O_WRONLY || (flags & O_ACCMODE) == O_RDWR )) {
         return -1;
     }
     int writeSize = write(fd, &size, 4);
-    lseek(fd, -writeSize, SEEK_CUR);
+    lseek(fd, -(int32_t)writeSize, SEEK_CUR);
     if(writeSize != 4) {
         return -1;
     }
@@ -300,13 +300,13 @@ unsigned char getPIHKeySize(int fd) {
         return -1;
     }
     int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_RDWR || flags & O_RDONLY )) {
+    if (!((flags & O_ACCMODE) == O_RDONLY || (flags & O_ACCMODE) == O_RDWR )) {
         return -1;
     }
     lseek(fd, 4, SEEK_CUR);
     unsigned char result;
     int readSize = read(fd, &result, 1);
-    lseek(fd, -readSize - 4, SEEK_CUR);
+    lseek(fd, -(int32_t)readSize - 4, SEEK_CUR);
     if(readSize != 1) {
         return -1;
     }
@@ -318,12 +318,12 @@ int setPIHKeySize(int fd, unsigned char size) {
         return -1;
     }
     int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_RDWR || flags & O_WRONLY )) {
+    if (!((flags & O_ACCMODE) == O_WRONLY || (flags & O_ACCMODE) ==O_RDWR )) {
         return -1;
     }
     lseek(fd, 4, SEEK_CUR);
     int writeSize = write(fd, &size, 1);
-    lseek(fd, -writeSize - 4, SEEK_CUR);
+    lseek(fd, -(int32_t)writeSize - 4, SEEK_CUR);
     if(writeSize != 1) {
         return -1;
     }
@@ -335,13 +335,13 @@ unsigned char getPIHFlags(int fd) {
         return -1;
     }
     int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_RDWR || flags & O_RDONLY )) {
+    if (!((flags & O_ACCMODE) == O_RDONLY || (flags & O_ACCMODE) == O_RDWR )) {
         return -1;
     }
     lseek(fd, 5, SEEK_CUR);
     unsigned char result;
     int readSize = read(fd, &result, 1);
-    lseek(fd, -readSize - 5, SEEK_CUR);
+    lseek(fd, -(int32_t)readSize - 5, SEEK_CUR);
     if(readSize != 1) {
         return -1;
     }
@@ -353,12 +353,12 @@ int setPIHFlags(int fd, unsigned char flags) {
         return -1;
     }
     int fflags = fcntl(fd, F_GETFL);
-    if (!(fflags & O_RDWR || fflags & O_WRONLY )) {
+    if (!((fflags & O_ACCMODE) == O_WRONLY || (fflags & O_ACCMODE) ==O_RDWR )) {
         return -1;
     }
     lseek(fd, 5, SEEK_CUR);
     int writeSize = write(fd, &flags, 1);
-    lseek(fd, -writeSize - 5, SEEK_CUR);
+    lseek(fd, -(int32_t)writeSize - 5, SEEK_CUR);
     if(writeSize != 1) {
         return -1;
     }
@@ -370,13 +370,13 @@ char *getPIHKey(int fd, int keyLength) {
         return NULL;
     }
     int fflags = fcntl(fd, F_GETFL);
-    if (!(fflags & O_RDWR || fflags & O_RDONLY )) {
+    if (!((fflags & O_ACCMODE) == O_RDONLY || (fflags & O_ACCMODE) == O_RDWR )) {
         return NULL;
     }
     lseek(fd, 6, SEEK_CUR);
     char *key = (char *)calloc(keyLength + 1, sizeof(char));
     read(fd, key, keyLength + 1);
-    lseek(fd, - 1 - keyLength - 6, SEEK_CUR);
+    lseek(fd, - 1 - (int32_t)keyLength - 6, SEEK_CUR);
     return key;
 }
 
@@ -384,7 +384,7 @@ char *getRIHKey(void *begin, int keyLength) {
     if (!begin || keyLength < 1) {
         return NULL;
     }
-    char *key = (char *)calloc(keyLength, sizeof(char));
+    char *key = (char *)calloc(keyLength + 1, sizeof(char));
     strcpy(key, (char *)begin + 6);
     return key;
 }
@@ -737,6 +737,16 @@ unsigned int allocateSegment(Heap *heap, void *begin) {
     getSHFlags(segment) &= ~SEGDELETE(0xff);
     updateHeapInfo(heap, begin);
 
+    /*MAKE FILE IF USING PMEM*/
+    if (getHHPath(begin)) {
+        char *segmentName = mkCachePath(getHHPath(begin), num);
+        if (access(getHHPath(begin), F_OK)) {
+            return -1;
+        }
+        printf("file name: %s\n", segmentName);
+        FILE *file = fopen(segmentName,"wb+");
+        fclose(file);
+    }
     return num;
 }
 
@@ -753,6 +763,22 @@ int freeSegment(Heap *heap, void *begin, unsigned int num) {
     getSHNext(segment) = getHHNext(begin);
     getHHNext(begin) = num;
     updateHeapInfo(heap, begin);
+
+    /*DELETE FILE IF USING PMEM*/
+    if (getHHPath(begin) && !access (getHHPath(begin), F_OK)) {
+        struct stat cacheDirStat;
+        memset(&cacheDirStat, 0, sizeof(struct stat));
+        stat(getHHPath(begin), &cacheDirStat);
+        //check that file is directory
+        if((cacheDirStat.st_mode & S_IFMT) == S_IFDIR) {
+            //if we have access to file we'll delete it
+            char *cacheName = mkCachePath(getHHPath(begin), num);
+            if (!access(cacheName, F_OK)) {
+                remove(cacheName);
+            }
+            free(cacheName);
+        }
+    }
     return 0;
 }
 
@@ -862,8 +888,8 @@ int setItemHeader(void *begin, int num, int offset, ItemHeader *header) {
     return 0;
 }
 
-int addItem(void *begin, int num, ItemHeader *header, void * value) {
-    int itemHeaderSize = 5;
+unsigned int addItem(void *begin, int num, ItemHeader *header, void * value) {
+    int itemHeaderSize = 6;
     if (!begin || (int32_t)num == -1 || !header || !value) {
         return -2;
     }
@@ -874,6 +900,7 @@ int addItem(void *begin, int num, ItemHeader *header, void * value) {
     if (SEGDELETE(getSHFlags(segmentHeader))) {
         return -2;
     }
+    int stop;
     // check that segment have enough space for item
     unsigned int itemSize = itemHeaderSize + header->keySize + 1 + header->valueSize;
     if (getHHSegSize(begin) - getSHFilledSize(segmentHeader) < itemSize) {
@@ -889,14 +916,16 @@ int addItem(void *begin, int num, ItemHeader *header, void * value) {
         int segment = open(segmentName, O_RDWR);
         lseek(segment, getSHFilledSize(segmentHeader), SEEK_SET);
         char* filler = (char *)calloc(itemSize, sizeof(char));
-        write(segment, filler, itemSize);
-        lseek(segment, -itemSize, SEEK_CUR);
+        lseek(segment, -(int32_t)itemSize, SEEK_CUR);
+
         setPIHValueSize(segment, header->valueSize);
         setPIHKeySize(segment, header->keySize);
         setPIHFlags(segment,header->flags);
+
         lseek(segment, itemHeaderSize, SEEK_CUR);
         write(segment, header->key, header->keySize + 1);
         write(segment, value, header->valueSize);
+
         close(segment);
     } else {
         /*ADD ITEM TO SEGMENT IN DRAM*/
@@ -917,29 +946,35 @@ int addItem(void *begin, int num, ItemHeader *header, void * value) {
             *((char *)segment + i) = *((char *)value + i);
         }
     }
-    return 0;
+
+    /*CHANGE INFO IN SEGMENT HEADER*/
+    getSHFilledSize(segmentHeader) += itemSize;
+    getSHCountItems(segmentHeader) += 1;
+
+    return getSHFilledSize(segmentHeader) - itemSize;
 }
 
 
 int readItem(void *begin, int num, int offset, ItemHeader *header, void **value) {
     if (!begin || (uint32_t)num == -1 || (uint32_t)offset == -1) {
-        return NULL;
+        return -1;
     }
     void *segmentHeader = getSegmentHeaderBegin(begin, num);
     if (!segmentHeader) {
-        return NULL;
+        return -1;
     }
     if (SEGDELETE(getSHFlags(segmentHeader))) {
-        return NULL;
+        return -1;
     }
     if (getHHPath(begin)) {
         /*READ ITEM HEADER IN FILE*/
         char *segmentName = mkCachePath(getHHPath(begin), num);
         if (access(segmentName, R_OK)) {
-            return NULL;
+            return -1;
         }
         int segment = open(segmentName, O_RDONLY);
         lseek(segment, offset, SEEK_SET);
+        printf("valueSize %d\n", getPIHValueSize(segment));
         header->valueSize = getPIHValueSize(segment);
         header->keySize = getPIHKeySize(segment);
         header->flags = getPIHFlags(segment);
@@ -952,15 +987,18 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
         /*READ ITEM HEADER IN DRAM*/
         void *segment = getRAMSegmentBegin(begin, num);
         if (!segment) {
-            return NULL;
+            return -1;
         }
         segment = (char*)segment + offset;
+        printf("segment ptr %p\n",segment);
         header->valueSize = getRIHValueSize(segment);
         header->keySize = getRIHKeySize(segment);
         header->flags = getRIHFlags(segment);
         header->key = getRIHKey(segment, header->keySize);
+        printf("'%d %d %d'\n%p\n%s\n", *(int *)segment, *((char*)segment + 4), *((char*)segment + 5), segment,(char*)segment + 6);
         *value = (char *)segment + header->keySize + 7;
     }
+    return 0;
 }
 
 
@@ -968,21 +1006,36 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
 
 
 /* test test test
-
 int main() {
     fdtest = open("fileWithHeap.bin", O_RDWR);
-    Heap *heap = initHeap(1024, 250, NULL);
-    printf("extend: %d\n", extendHeap(heap, heap->begin, 250));
+    Heap *heap = initHeap(1024, 250, "./test");
+    //printf("extend: %d\n", extendHeap(heap, heap->begin, 250));
     int c;
     scanf("%d",&c);
     int num = allocateSegment(heap, heap->begin);
-    SegmentHeader *segHead = getSegmentHeader(heap->begin, num);
-    printf("segment %d:\nbegin: %p\nnext: %d\nlut: %d\nfilled: %d\ncount: %hu\nflags %b\n\n",\
-     num,segHead->begin, segHead->next, segHead->timestamp, segHead->filledSize, segHead->count, segHead->flags);
-    printf("%d\n",num);
+    scanf("%d",&c);
+    char *greeting = "hello world from cache!\n";
+    ItemHeader *item = (ItemHeader *)malloc(sizeof(ItemHeader));
+    item->flags = 0;
+    item->key = "myval";
+    item->keySize = strlen(item->key);
+    item->valueSize = strlen(greeting) + 1; 
+    unsigned int offset = addItem(heap->begin, num, item, greeting);
+    if ((int32_t)offset == -2) {
+        printf("mem not enough!\n");
+        return 0;
+    } else if ((int32_t)offset == -1) {
+        printf("err while added item\n");
+        return 0;
+    }
+    char *res;
+    memset(item,0,sizeof(ItemHeader));
+    readItem(heap->begin,num, offset, item, (void **)&res);
+    printf("item:\nkeysize: %d\nvalSize %d\nflags %d\nkey %s\nvalue %s\n",\
+    item->keySize, item->valueSize, item->flags, item->key, res);
+    free(item);
     scanf("%d",&c);
     printf("%d\n",freeSegment(heap, heap->begin, num));
     freeHeap(heap->begin);
     return 0;
-}
-*/
+}*/
