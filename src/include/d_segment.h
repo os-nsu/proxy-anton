@@ -1,6 +1,7 @@
 #ifndef SEGMENT_H
 #define SEGMENT_H
 
+#include "d_item.h"
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -29,6 +30,14 @@ void setSegmentFree(SegmentHeader * begin, int next);
 void setSegmentBusy(SegmentHeader * begin, int next);
 
 void addItem(SegmentHeader *segment, int dataSize);
+
+ItemHeader *findSegItem(SegmentHeader *segmentHeader, void *segment, char *key);
+
+int findBigSegItem(SegmentHeader *segmentHeader, int segment, char *key);
+
+ItemHeader *getSegItem(void *segment, int offset);
+
+int getBigSegItem(int segment, int offset);
 
  
 

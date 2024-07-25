@@ -1,5 +1,6 @@
 #ifndef HEAP_H
 #define HEAP_H
+#include "d_segment.h"
 
 
 typedef struct SegHeap {
@@ -20,7 +21,11 @@ Heap *initHeap(int segmentSize, int bigSegmentSize, int bootSegCount, int bootbi
 
 void addSpace(Heap *heap, int count, int isBig);
 
+int getNum(Heap *heap, int isBig);
+
 void addNumToFreePool(Heap *heap, int num);
+
+SegmentHeader *findSegmentHeader(Heap *heap, int num);
 
 void *getSegmentData(Heap *heap, int num);
 
