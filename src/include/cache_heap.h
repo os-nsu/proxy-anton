@@ -176,6 +176,12 @@ unsigned int addItem(void *begin, int num, ItemHeader *header, void * value);
 */
 int readItem(void *begin, int num, int offset, ItemHeader *header, void **value);
 
+/*!
+    \brief Frees item header
+    \param[in] header Pointer to item header
+*/
+void freeItemHeader(ItemHeader *header);
+
 
 ///< \todo merge() зависит от реализации поэтому надо его реализовать эффективно внутри
 

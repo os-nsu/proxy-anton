@@ -179,8 +179,11 @@ int initSegmentHeader(void *begin, unsigned int next);
 */
 void updateHeapInfo(Heap *heap, void *begin);
 
-
-
+/*!
+    \brief Frees item header
+    \param[in] header Pointer to item header
+*/
+void freeItemHeader(ItemHeader *header);
 
 
 ///HEAP HEADER 
@@ -217,11 +220,11 @@ void updateHeapInfo(Heap *heap, void *begin);
 
 //SEGMENT HEADER 
 
-///< | next 4B | last use timestamp 4B | filled volume 4B | count items 2B | flags 1B | reserved 1B |
+///< | next 4B | start timestamp 4B | filled volume 4B | count items 2B | flags 1B | reserved 1B |
 
 #define getSHNext(begin) (*(uint32_t *)begin)
 
-#define getSHLastUseTime(begin) (*((uint32_t *)begin + 1))
+#define getSHStartTime(begin) (*((uint32_t *)begin + 1))
 
 #define getSHFilledSize(begin) (*((uint32_t *)begin + 2))
 
@@ -476,7 +479,7 @@ Heap *initHeap(unsigned int segmentSize, unsigned int bootSize, const char *cach
     int segmentHeaderSize = 16; ///< | next 4B | last use timestamp 4B | filled volume 4B | count items 2B | flags 1B | reserved 1B | 
     int segHeadAreaHeadSize = 16;
     void *heapRegion = mmap(NULL, heapHeaderSize + segHeadAreaHeadSize + bootSize * segmentHeaderSize,\
-    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FILE, fdtest, 0);
+    PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if (!heapRegion) {
         return NULL;
@@ -528,7 +531,7 @@ Heap *initHeap(unsigned int segmentSize, unsigned int bootSize, const char *cach
         /*USE DRAM*/
         int areaHeaderSize = 16;
         void *segmentArea = mmap(NULL, areaHeaderSize + bootSize * segmentSize,\
-        PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FILE, fdtest, 16 * 512);
+        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         *((void **)heapRegion + 2) = segmentArea;
         if (*(long long *)((void **)heapRegion + 2) == -1LL) {
             munmap(heapRegion, heapHeaderSize + bootSize * segmentHeaderSize);
@@ -559,7 +562,7 @@ int extendHeap(Heap *heap, void *begin, unsigned int count) {
     /*MAP NEW MEMORY*/
     int segmentHeaderSize = 16, areaHeaderSize = 16;
     void *nextHeaderArea = mmap(NULL, areaHeaderSize + (segmentHeaderSize * count),\
-    PROT_WRITE | PROT_READ, MAP_SHARED | MAP_FILE,  fdtest, 16 * 256);
+    PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,  -1, 0);
     
     if((long long)nextHeaderArea == -1LL) {
         return -1;
@@ -568,7 +571,7 @@ int extendHeap(Heap *heap, void *begin, unsigned int count) {
     if (!*((char **)begin + 3)) {
         /*MAP MEMORY FOR SEGMENTS IF DRAM SEGMENTS*/
         void *segmentArea = mmap(NULL, areaHeaderSize + *((int *)begin + 2) * count,\
-        PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FILE, fdtest, 16 * 768);
+        PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
         if ((long long)(segmentArea) == -1LL) {
             munmap(nextHeaderArea, areaHeaderSize + *((int *)begin + 2) * count);
@@ -793,7 +796,7 @@ SegmentHeader *getSegmentHeader(void *begin, int num) {
     SegmentHeader *segHead = (SegmentHeader *)malloc(sizeof(SegmentHeader));
     segHead->begin = segment;
     segHead->next = getSHNext(segment);
-    segHead->timestamp = getSHLastUseTime(segment);
+    segHead->timestamp = getSHStartTime(segment);
     segHead->filledSize = getSHFilledSize(segment);
     segHead->count = getSHCountItems(segment);
     segHead->flags = getSHFlags(segment);
@@ -805,7 +808,7 @@ int setSegmentHeader(SegmentHeader *header) {
         return -1;
     }
     getSHNext(header->begin) = header->next;
-    getSHLastUseTime(header->begin) = header->timestamp;
+    getSHStartTime(header->begin) = header->timestamp;
     getSHFilledSize(header->begin) = header->filledSize;
     getSHCountItems(header->begin) = header->count;
     getSHFlags(header->begin) = header->flags;
@@ -886,6 +889,15 @@ int setItemHeader(void *begin, int num, int offset, ItemHeader *header) {
         getRIHFlags(segment) = header->flags;
     }
     return 0;
+}
+
+
+void freeItemHeader(ItemHeader *header) {
+    if (!header) {
+        return;
+    }
+    free(header->key);
+    free(header);
 }
 
 unsigned int addItem(void *begin, int num, ItemHeader *header, void * value) {
@@ -974,7 +986,6 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
         }
         int segment = open(segmentName, O_RDONLY);
         lseek(segment, offset, SEEK_SET);
-        printf("valueSize %d\n", getPIHValueSize(segment));
         header->valueSize = getPIHValueSize(segment);
         header->keySize = getPIHKeySize(segment);
         header->flags = getPIHFlags(segment);
@@ -990,12 +1001,10 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
             return -1;
         }
         segment = (char*)segment + offset;
-        printf("segment ptr %p\n",segment);
         header->valueSize = getRIHValueSize(segment);
         header->keySize = getRIHKeySize(segment);
         header->flags = getRIHFlags(segment);
         header->key = getRIHKey(segment, header->keySize);
-        printf("'%d %d %d'\n%p\n%s\n", *(int *)segment, *((char*)segment + 4), *((char*)segment + 5), segment,(char*)segment + 6);
         *value = (char *)segment + header->keySize + 7;
     }
     return 0;
