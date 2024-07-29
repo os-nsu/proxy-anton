@@ -149,6 +149,17 @@ unsigned int addItem(void *begin, int num, ItemHeader *header, void * value);
 */
 int readItem(void *begin, int num, int offset, ItemHeader *header, void **value);
 
+
+/*!
+    \brief connects segments via next link
+    \param[in] begin Pointer to begin of heap
+    \param[in] head Id of previous segment
+    \param[in] tail Id of next segment
+    \return 0 if success, -1 else
+*/
+int connectSegment(void *begin, int head, int tail);
+
+
 /*!
     \brief Makes path to segment cache file
     \param[in] cacheDir Path to cache directory
@@ -738,6 +749,7 @@ unsigned int allocateSegment(Heap *heap, void *begin) {
     getHHNext(begin) = getSHNext(segment);
     getSHNext(segment) = -1;
     getSHFlags(segment) &= ~SEGDELETE(0xff);
+    getSHFlags(segment) &= ~SEGEXPIRED(0xff);
     updateHeapInfo(heap, begin);
 
     /*MAKE FILE IF USING PMEM*/
@@ -1010,6 +1022,27 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
     return 0;
 }
 
+
+
+int connectSegment(void *begin, int head, int tail)  {
+    if (head < 0 || tail < 0 || head >= getHHSize(begin) || tail >= getHHSize(begin)) {
+        return -1;
+    }
+    /*Find Segment*/
+    void *headHeader = getSegmentHeaderBegin(begin, head);
+    void *tailHeader = getSegmentHeaderBegin(begin, tail);
+
+    if (!headHeader || !tailHeader) {
+        return -1;
+    }
+    if (SEGDELETE(getSHFlags(headHeader)) || SEGEXPIRED(getSHFlags(headHeader)) ||\
+    SEGDELETE(getSHFlags(tailHeader)) || SEGEXPIRED(getSHFlags(tailHeader))) {
+        return -1;
+    }
+
+    getSHNext(begin) = tail;
+    return 0;
+}
 
 
 

@@ -182,6 +182,15 @@ int readItem(void *begin, int num, int offset, ItemHeader *header, void **value)
 */
 void freeItemHeader(ItemHeader *header);
 
+/*!
+    \brief connects segments via next link
+    \param[in] begin Pointer to begin of heap
+    \param[in] head Id of previous segment
+    \param[in] tail Id of next segment
+    \return 0 if success, -1 else
+*/
+int connectSegment(void *begin, int head, int tail);
+
 
 ///< \todo merge() зависит от реализации поэтому надо его реализовать эффективно внутри
 

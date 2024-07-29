@@ -7,7 +7,7 @@
     This file contains implementation of bulk-chained hash table.
     
     IDENTIFICATION
-        src/backend/cache/heap.c
+        src/backend/cache/hash_table.c
 */
 #include "../../include/cache_heap.h"
 #include "../../include/cache_hash_table.h"
