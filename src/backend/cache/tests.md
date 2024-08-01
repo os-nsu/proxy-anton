@@ -80,3 +80,23 @@ int main() {
     freeHeap(PMheap->begin);
     return 0;
 }*/
+
+
+
+TESTS FROM CACHE.C
+
+/*
+int main() {
+
+    initCache(1024, 100, 10, 1024 * 1024, 500 * 1024 * 1024, "./test");
+
+    putCache("hello", 10, strlen("hello world!") + 1, "Hello world!");
+
+    char *answer;
+
+    getCache("hello", (void **)&answer);
+
+    printf("answer: %s\n", answer);
+
+    return 0;
+} */

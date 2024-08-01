@@ -20,6 +20,7 @@
 #include "../../include/cache_heap.h"
 #include "../../include/cache_hash_table.h"
 #include "../../include/cache_ttl_buckets.h"
+#include <stdio.h>
 #include <string.h>
 
 
@@ -50,7 +51,7 @@ void freeCache(void);
     \param[in] value Cache value
     \return 0 if success. -1 else
 */
-int pushCache(char *key, int ttl, int valueSize, void *value);
+int putCache(char *key, int ttl, int valueSize, void *value);
 
 /*!
     \brief Gets cache
@@ -99,7 +100,7 @@ void freeCache(void) {
     freeTable(table);
 }
 
-int pushCache(char *key, int ttl, int valueSize, void *value) {
+int putCache(char *key, int ttl, int valueSize, void *value) {
     ItemHeader *itemHeader = (ItemHeader *)malloc(sizeof(ItemHeader));
     itemHeader->flags = 0;
     itemHeader->key = key;

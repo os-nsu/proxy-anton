@@ -18,20 +18,22 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <string.h>
+#include <unistd.h>
 #include <stdlib.h>
 
 /*STRUCTURES ADVERTISEMENTS*/
-struct PluginsStack;
 typedef struct InitInfoData InitInfo;
 
 /*FUNCTIONS ADVERTISEMENTS*/
 struct PluginsStack *initPluginsStack(int bootSize);
 int freePlugins(struct PluginsStack *stack);
-int pushPlugin(struct PluginsStack *stack, void *plugin);
-void *popPlugin(struct PluginsStack *stack);
+int pushPlugin(struct PluginsStack *stack, void *plugin, char *name);
+struct Plugin popPlugin(struct PluginsStack *stack);
+struct Plugin getPlugin(struct PluginsStack *stack, char *name);
 char *mkLogPath(const char *mainDir);
 char *mkConfigPath(const char *mainDir);
 char *mkPluginPath(const char *fileName, const char *pluginsDir);
+int forkWorkers(struct PluginsStack *stack);
 int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *stack);
 int launch(InitInfo *initInfo);
 int exitMainLoop (InitInfo *initInfo);
@@ -40,20 +42,12 @@ int mainMasterLoop (int argc, char **argv);
 
 
 /*HOOKS DEFINITIONS*/
-MainLoopHook startMainLoopHook = NULL;
+Hook startMainLoopHook = NULL;
+Hook endMainLoopHook = NULL;
+Hook sharedMemoryRequestHook = NULL;
+SharedMemoryHook sharedMemoryStartUpHook = NULL;
 
-MainLoopHook endMainLoopHook = NULL;
 
-
-/*!
-    \struct PluginsStack
-    \brief Stack for plugin pointers
-*/
-struct PluginsStack {
-    void **plugins;
-    int size;
-    int maxIdx;
-};
 
 
 /*!
@@ -65,7 +59,7 @@ struct PluginsStack *initPluginsStack(int bootSize) {
     struct PluginsStack *stack = (struct PluginsStack *)malloc(sizeof(struct PluginsStack));
     stack->maxIdx = -1;
     stack->size = 0;
-    stack->plugins = (void **)calloc(bootSize, sizeof(void *));
+    stack->plugins = (struct Plugin *)calloc(bootSize, sizeof(struct Plugin));
     return stack;
 }
 
@@ -76,7 +70,7 @@ struct PluginsStack *initPluginsStack(int bootSize) {
 */
 int freePlugins(struct PluginsStack *stack) {
     for (int i = stack->maxIdx; i >= 0; i--) {
-        dlclose(stack->plugins[i]);
+        dlclose(stack->plugins[i].handle);
     }
     return 0;
 }
@@ -85,29 +79,57 @@ int freePlugins(struct PluginsStack *stack) {
     \brief Pushes plugin to stack
     \param[in] stack Pointer to stack
     \param[in] plugin Plugin's pointer
+    \param[in] name Plugin's name
     \return 0 if success, -1 else
 */
-int pushPlugin(struct PluginsStack *stack, void *plugin) {
+int pushPlugin(struct PluginsStack *stack, void *plugin, char *name) {
     if (stack->maxIdx == stack->size - 1){
         stack->size = (int)(stack->size * 1.1 + 1);
-        stack->plugins = (void **)realloc(stack->plugins,  stack->size * sizeof(void *));
+        stack->plugins = (struct Plugin *)realloc(stack->plugins,  stack->size * sizeof(struct Plugin));
     }
-    stack->plugins[++stack->maxIdx] = plugin;
+    stack->plugins[++stack->maxIdx].handle = plugin;
+    stack->plugins[stack->maxIdx].name = name;
 
     return 0;
 }
 
 /*!
     \brief pop plugin from stack
+    Pops plugin from stack
     \param[in] stack Pointer to stack
     \return plugin if success, NULL else
 */
-void *popPlugin(struct PluginsStack *stack) {
-    if (!stack->plugins[stack->maxIdx]) {
-        return NULL;
+struct Plugin popPlugin(struct PluginsStack *stack) {
+    struct Plugin result;
+    result.handle = NULL;
+    result.name = NULL;
+    if (stack->size == 0) {
+        return result;
+    }
+    if (!stack->plugins[stack->maxIdx].handle) {
+        return result;
     }
     return stack->plugins[stack->maxIdx--];
 }
+
+/*!
+    \brief gets plugin by it's name
+    \param[in] stack Pointer to plugin stack
+    \param[in] name Name of plugin
+    \return plugin if success, empty plugin structure else
+*/
+struct Plugin getPlugin(struct PluginsStack *stack, char *name) {
+    struct Plugin result;
+    result.handle = NULL;
+    result.name = NULL;
+    for(int i = 0; i < stack->size; i++) {
+        if (strcmp(name, stack->plugins[i].name) == 0) {
+            return stack->plugins[i];
+        }
+    }
+    return result;
+}
+
 
 /*!
     \struct InitInfoData
@@ -195,6 +217,34 @@ char *mkPluginPath(const char *fileName, const char *pluginsDir) {
     return strcat(strcat(strcat(strcat(pluginPath, pluginsDir), slash),fileName), ".so"); 
 }
 
+
+/*!
+    \brief Forks worker processes
+    Forks all processes from list and execute their main fuctions.
+    \param[in] stack Pointer to plugin stack
+    \return 0 if parent process, 1 if child process, -1 if error
+*/
+int forkWorkers(struct PluginsStack *stack) {
+    if (!stack) {
+        return -1;
+    }
+
+    int pid = 0;
+    void(*bgMain)(void);
+    BackgroundWorker *currentWorker = backgroundWorkers.head;
+    while (currentWorker) {
+        pid = initializeBGWorker(currentWorker, stack, &bgMain);
+        if (!pid) {
+            bgMain();
+            return 1;
+        } else if (pid == -1) {
+            return -1;
+        }
+        currentWorker = currentWorker->next;
+    }
+    return 0;
+}
+
 /*!
     \brief Loads plugins
     \param[in] libsList Follower to parameter "plugins"
@@ -208,7 +258,7 @@ int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *st
     void *handle;
     char *error;
 
-    for (int i = 0; i < *libsList->size; ++i) {
+    for (int i = 0; (i < *libsList->size); ++i) {
         /*TRY TO LOAD .SO FILE*/
         char* pluginPath = mkPluginPath(libsList->data[i].strf, pluginsDir);
         handle = dlopen(pluginPath, RTLD_NOW | RTLD_GLOBAL);
@@ -223,7 +273,7 @@ int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *st
 
         /*PUSH HANDLE TO PLUGIN STACK*/
 
-        pushPlugin(stack, handle);
+        pushPlugin(stack, handle, libsList->data[i].strf);
 
         /*EXECUTE PLUGIN*/
         initPlugin = (void(*)(void))dlsym(handle, "init");
@@ -243,7 +293,7 @@ int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *st
 
 /*!
     \brief Initializes proxy
-    Initializes logger and config, loads user's plugins, fork other processes.
+    Initializes logger and config, loads user's plugins, maps shared memory.
     \param[in] paths WorkPaths structure that contains need paths
     \return 0 if success, -1 and sets errno else
 */
@@ -278,6 +328,8 @@ int launch(InitInfo *initInfo) {
         fprintf(stderr, "Logger session couldn't be opened. Log file path is \"%s\"\n", initInfo->loggerPath);
     }
 
+    /*INIT CAT & PARSE CONFIG*/
+
     if (initCAT()) {
         logReport(LOG_ERROR, "CAT initialize error", NULL, "problem with allocation, check memory");
     }
@@ -297,7 +349,20 @@ int launch(InitInfo *initInfo) {
             return -1;
         }
     }
+
+    /*REQUEST SHARED MEMORY*/
+    if (sharedMemoryRequestHook) {
+        sharedMemoryRequestHook();
+    }
+
+    /*START UP SHARED MEMORY*/
+    SharedAreaManager *shMemMgr =  mapSharedMemory();
+    RegionTable *table =  initRegionTable(100);
+    if (sharedMemoryStartUpHook) {
+        sharedMemoryStartUpHook(shMemMgr,table);
+    }
     
+
     return 0;
 }
 
@@ -308,6 +373,8 @@ int exitMainLoop (InitInfo *initInfo) {
     return 0;
 }
 
+
+
 /*!
     \brief Master entry point
     \return 0 if success, -1 else
@@ -316,11 +383,17 @@ int mainMasterLoop (int argc, char **argv) {
     if (argc < 3) {
         return -1;
     }
+    initWorkersList();
     InitInfo meta = {".", argv[0], argv[1], argv[2], initPluginsStack(100)};
     launch(&meta);
-    
+
+    /*FORK PROCESSES*/
+    int forkRes = forkWorkers(meta.plugins);
+    if (forkRes == 1) { // if background process finished it's main function, then return
+        return 0;
+    }
+
     /*CALL HOOK*/
-    printf("start hook is %p\nend hook is %p\n", startMainLoopHook, endMainLoopHook);
     if(startMainLoopHook) {
         startMainLoopHook();
     }
@@ -332,5 +405,3 @@ int mainMasterLoop (int argc, char **argv) {
     exitMainLoop(&meta);
     return 0;
 }
-
-

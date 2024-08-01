@@ -517,7 +517,6 @@ int getItem(HashTable *table, char *key, ItemHeader *header, void **item) {
             if (strcmp(candidat->key, key) == 0) {
                 readItem(heap->begin, segIdx, offset, header, item);
                 updateLastUseTime(bucket->pointers);
-                printf("new time %lu\n", BKT_GET_TIMESTAMP((*bucket->pointers)));
                 freeItemHeader(candidat);
                 return 0;
             }

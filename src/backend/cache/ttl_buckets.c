@@ -20,6 +20,7 @@
         src/backend/cache/ttl_buckets.c
 */
 
+
 #include <stdlib.h>
 #include "../../include/cache_ttl_buckets.h"
 #include "../../include/cache_heap.h"
@@ -115,7 +116,6 @@ void freeTTLGroup(TTLGroup *group) {
 
 
 
-
 int writeCache(TTLGroup *group, int heapIdx, HashTable *table, int ttl, ItemHeader *itemHeader, void *value) {
     if (!group || heapIdx < 0 || heapIdx >= table->countHeaps || !table || !value) {
         return -1;
@@ -124,14 +124,17 @@ int writeCache(TTLGroup *group, int heapIdx, HashTable *table, int ttl, ItemHead
     int ttlIdx = getIdxByTTL(ttl);
     /*CHECK AND WRITE TO SEGMENT*/
     int tailNum = group->buckets[ttlIdx].tailSeg;
-
     Heap *heap = table->heaps[heapIdx];
 
+    int offset = -1, tryResult = -1;
+    
     SegmentHeader *tailHeader = getSegmentHeader(heap->begin, tailNum); 
-    int offset = tailHeader->filledSize;
+    if (tailHeader) {
+        offset = tailHeader->filledSize;
+        tryResult = addItem(heap->begin, tailNum, itemHeader, value);
+    } 
 
-    int tryResult = addItem(heap->begin, tailNum, itemHeader, value);
-    if (tryResult == -1) {
+    if (!tailHeader || tryResult == -1) {
         //ADD SEGMENT
         int num;
         if ((num = allocateSegment(heap, heap->begin)) == -1) {

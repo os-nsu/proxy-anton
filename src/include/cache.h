@@ -44,7 +44,7 @@ void freeCache(void);
     \param[in] value Cache value
     \return 0 if success. -1 else
 */
-int pushCache(char *key, int ttl, int valueSize, void *value);
+int putCache(char *key, int ttl, int valueSize, void *value);
 
 /*!
     \brief Gets cache

@@ -798,7 +798,7 @@ int freeSegment(Heap *heap, void *begin, unsigned int num) {
 }
 
 SegmentHeader *getSegmentHeader(void *begin, int num) {
-    if (!begin || (int32_t)num == -1) {
+    if (!begin || (int32_t)num < 0) {
         return NULL;
     }
     void *segment = getSegmentHeaderBegin(begin, num);
