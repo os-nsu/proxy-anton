@@ -12,7 +12,9 @@
 */
 
 #include "../../include/master.h"
+#include <signal.h>
 #include <dlfcn.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -43,9 +45,14 @@ int registerBGWorker(const char *name, const char *libName, const char *funcName
     \param[out] workerMain Pointer to main function of worker
     \return result of fork if success, -1 else
 */
-int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(void));
+int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(int, void **));
 
-
+/*!
+    \brief sends SIGTERM to background process
+    \param[in] worker Pointer to background worker structure 
+    \return result of kill if success, -1 else
+*/
+int terminateBGWorker(BackgroundWorker *worker);
 
 
 /*FUNCTION IMPLEMENTATION*/
@@ -71,7 +78,6 @@ int registerBGWorker(const char *name, const char *libName, const char *funcName
 
     bgWorker->pid = UNDEFINED_PID;
     bgWorker->status = ST_REGISTERED;
-
     bgWorker->next = backgroundWorkers.head;
     backgroundWorkers.head = bgWorker;
     backgroundWorkers.size++;
@@ -79,7 +85,7 @@ int registerBGWorker(const char *name, const char *libName, const char *funcName
 }
 
 
-int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(void)) {
+int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(int, void **)) {
     if (!worker || !stack || !worker->funcName || !worker->libName ) {
         return -1;
     }
@@ -92,8 +98,24 @@ int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, voi
 
     //LOAD MAIN FUNTION OF WORKER
 
-    *workerMain = (void(*)(void))dlsym(plugin.handle, worker->funcName);
-    
-    return fork();
+    *workerMain = (void(*)(int, void **))dlsym(plugin.handle, worker->funcName);
+    int result = fork();
+    if(!result) {
+        sleep(1);
+    }
+    if (result != 0 && result != -1) {
+        worker->pid = result;
+        worker->status= ST_STARTED;
+    }
+
+    return result;
 }
 
+
+int terminateBGWorker(BackgroundWorker *worker) {
+    if (!worker || !worker->pid || worker->pid == -1) {
+        return -1;
+    }
+
+    return kill(worker->pid, SIGTERM);
+}

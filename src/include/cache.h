@@ -54,4 +54,10 @@ int putCache(char *key, int ttl, int valueSize, void *value);
 */
 int getCache(char *key, void **value);
 
+
+/*!
+    \brief Initializes cache process
+*/
+void init(void);
+
 #endif //CACHE_H

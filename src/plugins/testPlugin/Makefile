@@ -1,7 +1,6 @@
 all: test.o
-	mkdir ../../../install/plugins/test/
-	gcc -shared -o test.so testPlugin.o -ldl -L../../../install/plugins/test/
-	mv test.so ../../../install/plugins/test/
+	gcc -shared -o test.so testPlugin.o -ldl -L../../../install/plugins/
+	mv test.so ../../../install/plugins/
 	make clean
 test.o:
 	gcc -c -fPIC testPlugin.c

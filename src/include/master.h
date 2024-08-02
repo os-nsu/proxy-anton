@@ -72,7 +72,6 @@ void initWorkersList(void);
 int registerBGWorker(const char *name, const char *libName, const char *funcName);
 
 
-
 /*!
     \brief Initializes worker
     \param[in] worker Pointer to background worker
@@ -80,7 +79,17 @@ int registerBGWorker(const char *name, const char *libName, const char *funcName
     \param[out] workerMain Pointer to main function of worker
     \return result of fork if success, -1 else
 */
-int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(void));
+int initializeBGWorker(BackgroundWorker *worker, struct PluginsStack *stack, void(**workerMain)(int, void **));
+
+
+/*!
+    \brief sends SIGTERM to background process
+    \param[in] worker Pointer to background worker structure 
+    \return result of kill if success, -1 else
+*/
+int terminateBGWorker(BackgroundWorker *worker);
+
+
 
 
 /*!
@@ -202,8 +211,6 @@ SharedAreaManager *mapSharedMemory(void);
 void *registerSharedArea(SharedAreaManager *manager, RegionTable *table, const char *name, int size, int *found);
 
 
-
- 
 
 /*!
     \brief Master entry point

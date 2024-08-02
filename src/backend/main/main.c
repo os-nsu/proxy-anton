@@ -17,14 +17,18 @@
 #include <stdlib.h>
 
 
-
 /*!
     \brief Main entry point in program
 */
 int main(int argc, char **argv) {
     ///< \todo parser of command line arguments
-    char **args = (char**)calloc(3, sizeof(char *));
-    mainMasterLoop(3, args);
+    char **args = (char**)calloc(4, sizeof(char *));
+    if (argc > 2) {
+        args[0] = argv[0];
+        args[1] = argv[1];
+        args[2] = argv[2];
+    }
+    mainMasterLoop(4, args);
     return 0;
 }
 

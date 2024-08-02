@@ -20,8 +20,16 @@
 #include "../../include/cache_heap.h"
 #include "../../include/cache_hash_table.h"
 #include "../../include/cache_ttl_buckets.h"
+#include "../../include/master.h"
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
+
+//GLOBALS
+static SharedMemoryHook prevSharedMemoryStartUpHook = NULL;
+static SharedMemoryHook prevSharedMemoryRequestHook = NULL;
+long long *mycounter;
+
 
 
 /*FUNCTION ADVERTISEMENT*/
@@ -60,6 +68,30 @@ int putCache(char *key, int ttl, int valueSize, void *value);
     \return 0 if cache worked correctly, -1 else
 */
 int getCache(char *key, void **value);
+
+
+/*!
+    \brief Makes path to cache directory
+    \param[in] mainDir path to main proxy directory
+*/
+char *mkCacheDir(const char *mainDir);
+
+
+/*!
+    \brief Initializes cache process
+*/
+void init(void);
+
+
+
+/*!
+    \brief handles signals
+*/
+void termHandler(int sigint);
+
+
+void customSharedMemoryStartUpHook(SharedAreaManager *manager, RegionTable *table);
+
 
 /*FUNCTION IMPLEMENTATION*/
 
@@ -130,4 +162,70 @@ int getCache(char *key, void **value) {
         return 0;
     }
     return -1;
+}
+
+char *mkCacheDir(const char *mainDir) {
+    if (!mainDir) {
+        return NULL;
+    }
+    
+    /*DEFINE CACHE DIR NAME*/
+    char *cacheDirName;
+    const char *c = mainDir;
+    while (*c++);
+
+    if (*(c--) == '/') {
+        cacheDirName = "cache/";
+    } else {
+        cacheDirName = "/cache/";
+    }
+    
+    char *cachePath = (char *)calloc(strlen(mainDir) + strlen(cacheDirName) + 1, sizeof(char));
+    return strcat(strcat(cachePath, mainDir), cacheDirName);
+};
+
+
+void init(void) {
+    registerBGWorker("cache", "cache", "cacheMain");
+}
+
+
+void customSharedMemoryStartUpHook(SharedAreaManager *manager, RegionTable *table) {
+    if(prevSharedMemoryStartUpHook) {
+        prevSharedMemoryStartUpHook(manager, table);
+    }
+    int flFound = -1;
+    mycounter = registerSharedArea(manager, table, "testCounter", sizeof(long long), &flFound);
+}
+
+void cacheMain(int argc, void **argv) {
+    printf("Hello\n");
+    signal(SIGTERM, termHandler);
+    if (argc != 1) {
+        printf("wtf\n");
+        return;
+    }
+    char *cacheDir = mkCacheDir(argv[0]);
+    int res = initCache(256, 100,50, 1024, 1024*512, cacheDir);
+    if(res == -1) {
+        printf("hooooow\n");
+        return;
+    }
+    free(cacheDir);
+    sleep(10);
+    putCache("counter", 100, sizeof(long long), mycounter);
+    printf("put counter\n");
+    sleep(10);
+    int *cacheRes;
+    getCache("counter", (void **)&cacheRes);
+    *mycounter = *cacheRes;
+    printf("got counter\n");
+    sleep(1000);
+}
+
+
+void termHandler(int sigint) {
+    if (sigint == SIGTERM) {
+        abort();
+    }
 }

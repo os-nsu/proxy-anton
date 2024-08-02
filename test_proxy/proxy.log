@@ -1,0 +1,10 @@
+INFO: PRIMARY:    Hello 0
+INFO: PRIMARY:    Hello 1
+INFO: PRIMARY:    Hello 2
+INFO: PRIMARY:    Hello 3
+INFO: PRIMARY:    Hello 4
+INFO: PRIMARY:    Hello 5
+DEBUG: PRIMARY:    takes sigterm, terminate
+
+DEBUG: PRIMARY:    takes sigterm, terminate
+

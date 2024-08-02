@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include "../../include/master.h"
 #include "../../include/logger.h"
+#include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 
 static Hook prevStartMainLoopHook = NULL;
 static Hook prevSharedMemoryRequestHook = NULL;
@@ -11,9 +13,9 @@ void customStartMainLoopHook(void);
 void customSharedMemoryRequestHook(void);
 void customSharedMemoryStartUpHook(SharedAreaManager *manager, RegionTable *table);
 
-
+void termHandler(int sigint);
 void init(void);
-void bgMain(void);
+void bgMain(int argc, void *argv);
 
 long long *mycounter = NULL;
 
@@ -56,16 +58,32 @@ void customSharedMemoryStartUpHook(SharedAreaManager *manager, RegionTable *tabl
     *mycounter = 0LL;
 }
 
-void bgMain(void) {
+
+
+void bgMain(int argc, void *argv) {
+    /*Now process is ready to terminate*/
+    signal(SIGTERM, termHandler);
     int i = 0;
+    int lastV = 0;
     while(1){
         logMsg(LOG_INFO, LOG_PRIMARY, "Hello %d", i);
         i++;
-        if (i == 10) {
+        if (i == 50) {
             return;
         }
+        sleep(7);
+        if (lastV > *mycounter) {
+            printf("getted result %lld\n", *mycounter);
+        }
         (*mycounter)++;
-        printf("in plugin %lld", *mycounter);
+        lastV = *mycounter;
     }
 
+}
+
+void termHandler(int sigint) {
+    if (sigint == SIGTERM) {
+        logMsg(LOG_DEBUG, LOG_PRIMARY, "takes sigterm, terminate\n");
+        abort();
+    }
 }

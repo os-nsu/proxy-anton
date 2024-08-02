@@ -33,7 +33,8 @@ struct Plugin getPlugin(struct PluginsStack *stack, char *name);
 char *mkLogPath(const char *mainDir);
 char *mkConfigPath(const char *mainDir);
 char *mkPluginPath(const char *fileName, const char *pluginsDir);
-int forkWorkers(struct PluginsStack *stack);
+int forkWorkers(InitInfo *meta);
+int killWorkers(void);
 int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *stack);
 int launch(InitInfo *initInfo);
 int exitMainLoop (InitInfo *initInfo);
@@ -136,6 +137,7 @@ struct Plugin getPlugin(struct PluginsStack *stack, char *name) {
     \brief Contains data needed for initialize
 */
 struct InitInfoData {
+    char *executablePath;
     char *mainDir;
     char *pluginsDir;
     char *loggerPath;
@@ -205,7 +207,7 @@ char *mkPluginPath(const char *fileName, const char *pluginsDir) {
     }
 
     if (!pluginsDir){
-        pluginsDir = "../../plugins/";
+        pluginsDir = "../plugins/";
     }
 
     char *slash = "";
@@ -221,23 +223,42 @@ char *mkPluginPath(const char *fileName, const char *pluginsDir) {
 /*!
     \brief Forks worker processes
     Forks all processes from list and execute their main fuctions.
-    \param[in] stack Pointer to plugin stack
+    \param[in] meta Meta informatin for init
     \return 0 if parent process, 1 if child process, -1 if error
 */
-int forkWorkers(struct PluginsStack *stack) {
-    if (!stack) {
+int forkWorkers(InitInfo *meta) {
+    if (!meta) {
         return -1;
     }
 
     int pid = 0;
-    void(*bgMain)(void);
+    void(*bgMain)(int, void **);
     BackgroundWorker *currentWorker = backgroundWorkers.head;
     while (currentWorker) {
-        pid = initializeBGWorker(currentWorker, stack, &bgMain);
+        /*CHECK PROCESS AFTER FORK*/
+        pid = initializeBGWorker(currentWorker, meta->plugins, &bgMain);
         if (!pid) {
-            bgMain();
+            if (strcmp(currentWorker->libName, "cache") == 0) {
+                bgMain(1, (void **)&(meta->mainDir));
+            }
+            bgMain(0, NULL);
             return 1;
         } else if (pid == -1) {
+            return -1;
+        }
+        currentWorker = currentWorker->next;
+    }
+    return 0;
+}
+
+/*!
+    \brief Try to kill all workers
+    \return 0 if success, -1 else
+*/
+int killWorkers(void) {
+    BackgroundWorker *currentWorker = backgroundWorkers.head;
+    while (currentWorker) {
+        if (terminateBGWorker(currentWorker) == -1) {
             return -1;
         }
         currentWorker = currentWorker->next;
@@ -272,7 +293,6 @@ int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *st
         error = dlerror();
 
         /*PUSH HANDLE TO PLUGIN STACK*/
-
         pushPlugin(stack, handle, libsList->data[i].strf);
 
         /*EXECUTE PLUGIN*/
@@ -281,7 +301,7 @@ int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *st
         error = dlerror();
         if(error != NULL){
             logReport(LOG_ERROR, "Library couldn't execute init", \
-                    "Library's name is %s. Dlopen message: %s", \
+                    "Library's name is %s. Dlsym message: %s", \
                     "check plugins folder or rename library", libsList->data[i].strf, error);
             return -1;
         }
@@ -366,12 +386,16 @@ int launch(InitInfo *initInfo) {
     return 0;
 }
 
-int exitMainLoop (InitInfo *initInfo) {
 
+int exitMainLoop (InitInfo *initInfo) {
+    killWorkers();
     closeLogSession();
     freePlugins(initInfo->plugins);
     return 0;
 }
+
+
+
 
 
 
@@ -380,15 +404,20 @@ int exitMainLoop (InitInfo *initInfo) {
     \return 0 if success, -1 else
 */
 int mainMasterLoop (int argc, char **argv) {
-    if (argc < 3) {
+    if (argc < 4) {
         return -1;
     }
     initWorkersList();
-    InitInfo meta = {".", argv[0], argv[1], argv[2], initPluginsStack(100)};
+    char *mainDir = ".";
+    if (argv[1]) {
+        mainDir = argv[1];
+    }
+
+    InitInfo meta = {argv[0], mainDir, argv[2], argv[3], argv[4], initPluginsStack(100)};
     launch(&meta);
 
     /*FORK PROCESSES*/
-    int forkRes = forkWorkers(meta.plugins);
+    int forkRes = forkWorkers(&meta);
     if (forkRes == 1) { // if background process finished it's main function, then return
         return 0;
     }
@@ -397,7 +426,9 @@ int mainMasterLoop (int argc, char **argv) {
     if(startMainLoopHook) {
         startMainLoopHook();
     }
-    
+    printf("Hi start sleep\n");
+    sleep(40);
+    printf("Exit, close all workers\n");
 
     if(endMainLoopHook) {
         startMainLoopHook();

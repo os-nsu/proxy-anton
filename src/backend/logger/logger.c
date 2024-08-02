@@ -192,18 +192,13 @@ int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...) {
         errno = EBADMSG;
         return -1;
     }
-
     fprintf(mainLogger.session, "%s%s", msgLvl, msgPart);
-    
     va_list ptr;
     va_start(ptr, format);
-
     vfprintf(mainLogger.session, format, ptr);
-
     va_end(ptr);
-
     fprintf(mainLogger.session,"\n");
-
+    fflush(mainLogger.session);
     return 0;
 }
 
@@ -298,6 +293,7 @@ int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...) {
     vfprintf(mainLogger.session, report, ptr);
 
     va_end(ptr);
+    fflush(mainLogger.session);
     free(report);
     return 0;
 }
