@@ -431,7 +431,7 @@ int mainMasterLoop (int argc, char **argv) {
     printf("Exit, close all workers\n");
 
     if(endMainLoopHook) {
-        startMainLoopHook();
+        endMainLoopHook();
     }
     exitMainLoop(&meta);
     return 0;

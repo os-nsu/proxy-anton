@@ -73,7 +73,7 @@ void bgMain(int argc, void *argv) {
         }
         sleep(7);
         if (lastV > *mycounter) {
-            printf("getted result %lld\n", *mycounter);
+            printf("got result %lld\n", *mycounter);
         }
         (*mycounter)++;
         lastV = *mycounter;

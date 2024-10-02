@@ -60,7 +60,6 @@ int initLogger(char* path){
     mainLogger.logFilePath = (char*)calloc(strlen(path) + 1, sizeof(char));
 
     strcpy(mainLogger.logFilePath, path);
-
     return 0;
 }
 

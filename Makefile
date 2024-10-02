@@ -1,14 +1,18 @@
-all: clean_last backend
-	mkdir install
-	mkdir install/backend
-	mkdir install/plugins
-	mv ./libconfig.so install/backend
-	mv ./liblogger.a install/backend
-	gcc -o proxy src/backend/main/main.c src/backend/master/master.c src/backend/master/bgWorker.c src/backend/master/sharedMem.c -export-dynamic -L./install/backend/ -ldl -llogger -lconfig -Wl,-rpath,./install/backend
-	mv ./proxy install/backend
+export MAINDIR = $(CURDIR)
+
+all:clean_install prepare_dir backend
+	mv ./libconfig.so install
+	mv ./liblogger.a install
+	gcc -o proxy src/backend/main/main.c src/backend/master/master.c src/backend/master/bgWorker.c src/backend/master/sharedMem.c -export-dynamic -L./install/ -ldl -llogger -lconfig -Wl,-rpath,$(MAINDIR)/install
+	mv ./proxy install
 	make kernel_plugins
+	make custom_plugins
 	make clean
 
+
+prepare_dir:
+	mkdir install
+	mkdir install/plugins
 
 backend:
 	make -f src/backend/logger/Makefile
@@ -22,5 +26,9 @@ clean:
 	rm -rf *.so
 	rm -rf *.a
 
-clean_last:
+clean_install:
 	rm -rf install
+
+custom_plugins:
+	make -f src/plugins/Makefile
+

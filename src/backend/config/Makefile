@@ -1,5 +1,6 @@
 all: parser.o cat.o
-	gcc -shared -o libconfig.so cat.o parser.o -L../../../install/backend
+
+	gcc -shared -o libconfig.so cat.o parser.o -L $(MAINDIR)/install -Wl,-rpath,$(MAINDIR)/install
 parser.o:
 	gcc -c -fPIC src/backend/config/parser.c
 
