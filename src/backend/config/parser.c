@@ -123,7 +123,9 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
             break;
         }
         case start: {
-            if ((sym < 'A' && sym != ' ' && sym != '#') || (sym > 'Z' && sym < 'a' && sym != '_') || sym > 'z') {
+            if (sym == '\n'  || sym == ' ' || sym == '\t') {
+                curState = start;
+            } else if ((sym < 'A' && sym != ' ' && sym != '#') || (sym > 'Z' && sym < 'a' && sym != '_') || sym > 'z') {
                 curState = error;
             } else if (sym == '#') {
                 curState = comment;
@@ -521,6 +523,7 @@ int parseLine(char *line, char **rkey, union Value **rvalues, int *rsize, enum P
     }
 
     /*PROCESS ERROR CASE*/
+    
     if (keyName) {
         free(keyName);
     }
@@ -560,16 +563,19 @@ int parseConfig(char* path) {
     strcpy(curGroup,"kernel"); //"kernel" - default group name in config
     int check = 0; // check result of getline
     int cntLine = 0;
-    while (!feof(config) && (check = getline(&line, &len, config))) {
+    while (!feof(config) && (check = getline(&line, &len, config)) && check != -1) {
+        if (line[strlen(line)-1] == '\n') {
+            line[strlen(line)-1] = 0;
+        }
         cntLine++;
         int size = 0;
         union Value *values = NULL;
         char *key = NULL;
         enum ParameterType type = 0;
         int parseResult = 0;
-        if((parseResult = parseLine(line, &key, &values, &size, &type))) { 
+        if((parseResult = parseLine(line, &key, &values, &size, &type))) {
             if(parseResult == -1 ) {
-                logReport(LOG_ERROR, "Config file error", "In line %d", "Read syntax in config.h", cntLine);
+                logReport(LOG_ERROR, "Config file error", "In line %d: \"%s\"", "Read syntax in config.h", cntLine, line);
                 free(line);
                 return -1;       
             }
@@ -594,7 +600,6 @@ int parseConfig(char* path) {
             return -1;
         }
     }
-
     free(curGroup);
     return 0;
 }
