@@ -1,3 +1,4 @@
+#include "../../include/master.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,9 @@ char *mkPuginPath(char* execPath, const char *pluginRelPath) {
     strcat(resultPath, pluginRelPath);
     return resultPath;
 }
+
+Hook start_hook = NULL;
+Hook end_hook = NULL;
 
 int main(int argc, char *argv[]) {
     void (*initPlugin)(void); ///< this function will be executed for each contrib library
@@ -38,8 +42,13 @@ int main(int argc, char *argv[]) {
 
     initPlugin();
 
+    if (start_hook)
+        start_hook();
+
+    if (end_hook)
+        end_hook();
 
     free(pluginPath);
-
+    dlclose(handle);
     return 0;
 }
