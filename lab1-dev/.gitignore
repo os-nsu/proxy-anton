@@ -1,3 +1,7 @@
 .vscode
 doxygen
 install
+
+*.o
+*.so
+*.a
