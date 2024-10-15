@@ -1,10 +1,9 @@
 export MAINDIR = $(CURDIR)
 
-
 all: clean_install prepare_dir
 	make -f src/libs/dynamic/Makefile
 	mv ./libdynamichello.so install
-	gcc -o proxy  src/master/master.c -Wall -L./install/ -ldynamichello -Wl,-rpath,$(MAINDIR)/install
+	gcc -o proxy  src/master/master.c -Wall -L./install/ -ldynamichello -Wl,-rpath,$(MAINDIR)/contrib
 	mv ./proxy install
 
 prepare_dir:
