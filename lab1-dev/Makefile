@@ -2,9 +2,9 @@ export MAINDIR = $(CURDIR)
 
 
 all: clean_install prepare_dir
-	make -f src/libs/static/Makefile
-	mv ./libstatichello.a install
-	gcc -o proxy  src/master/master.c -Wall -L./install/ -lstatichello
+	make -f src/libs/dynamic/Makefile
+	mv ./libdynamichello.so install
+	gcc -o proxy  src/master/master.c -Wall -L./install/ -ldynamichello -Wl,-rpath,$(MAINDIR)/install
 	mv ./proxy install
 
 prepare_dir:

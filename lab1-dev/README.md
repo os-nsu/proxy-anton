@@ -11,5 +11,11 @@
 **(1-2)**
 1) Собирается статическая библиотека ./install/libstatichello.a (т.е. сокращенное имя -lstatichello)
 2) Собирается исполняемый файл с подклчением данной библиотеки при -L ./install/
-3) При запуске программа исполняет функцию библиотеки void hello_from_static_lib(void) (она определена в ./include/hello_static_lib.h)
+3) При запуске программа исполняет функцию библиотеки void hello_from_static_lib(void) (она объявлена в ./include/hello_static_lib.h)
+4) Данную функцию можно протестировать, она должна выводить в stdout строку "hello world\n"
+
+**(1-3)**
+1) Собирается динамичекая библиотека ./install/libdynamichello.a (т.е. сокращенное имя -ldynamichello)
+2) Собирается исполняемый файл с подклчением данной библиотеки при -L ./install/ (также для линкера указываем -Wl,-rpath,$(MAINDIR)/install)
+3) При запуске программа исполняет функцию библиотеки void hello_from_dynamic_lib(void) (она объявлена в ./include/hello_dynamic_lib.h)
 4) Данную функцию можно протестировать, она должна выводить в stdout строку "hello world\n"
