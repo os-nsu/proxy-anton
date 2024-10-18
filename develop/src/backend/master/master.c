@@ -404,7 +404,7 @@ int exitMainLoop (InitInfo *initInfo) {
     \return 0 if success, -1 else
 */
 int mainMasterLoop (int argc, char **argv) {
-    if (argc < 4) {
+    if (argc < 5) {
         return -1;
     }
     initWorkersList();
