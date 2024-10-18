@@ -36,4 +36,3 @@ int main(int argc, char **argv) {
     mainMasterLoop(4, args);
     return 0;
 }
-
