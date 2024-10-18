@@ -1,11 +1,0 @@
-ERROR: PRIMARY:    Config file error
-ERROR: DETAIL:    In line 2: "õA¥ˆ"
-ERROR: HINT:    Read syntax in config.h
-ERROR: PRIMARY:    Config file error
-ERROR: DETAIL:    In line 2: " —€³"
-ERROR: HINT:    Read syntax in config.h
-ERROR: PRIMARY:    Config file error
-ERROR: DETAIL:    In line 2: "Y=º"
-ERROR: HINT:    Read syntax in config.h
-INFO: PRIMARY:    Hello 0
-INFO: PRIMARY:    Hello 0

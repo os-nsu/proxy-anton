@@ -21,7 +21,7 @@ long long *mycounter = NULL;
 
 
 void init(void) {
-    printf("Hello, world, from init!\n");
+    printf("Hello, world, from init!  %d\n",getpid());
 
     prevStartMainLoopHook = startMainLoopHook;
     startMainLoopHook = customStartMainLoopHook;
