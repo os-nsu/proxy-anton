@@ -1,3 +1,5 @@
 .vscode
 doxygen
 install
+*.log
+test_proxy/*.log
