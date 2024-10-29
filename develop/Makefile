@@ -1,9 +1,16 @@
 export MAINDIR = $(CURDIR)
 
+COPT := ${COPT} 
+CFLAGS := ${CFLAGS} -export-dynamic
+LDFLAGS := ${LDFLAGS} -L./install/ -ldl -llogger -lconfig
+CPPFLAGS := ${CPPFLAGS}
+
+CC = gcc
+
 all:clean_install prepare_dir backend
 	mv ./libconfig.so install
 	mv ./liblogger.a install
-	gcc -o proxy src/backend/main/main.c src/backend/master/master.c src/backend/master/bgWorker.c src/backend/master/sharedMem.c -export-dynamic -L./install/ -ldl -llogger -lconfig -Wl,-rpath,$(MAINDIR)/install
+	$(CC) $(CFLAGS) $(COPT) $(CPPFLAGS) -o proxy src/backend/main/main.c src/backend/master/master.c src/backend/master/bgWorker.c src/backend/master/sharedMem.c  $(LDFLAGS) -Wl,-rpath,$(MAINDIR)/install
 	mv ./proxy install
 	make kernel_plugins
 	make custom_plugins
