@@ -372,6 +372,7 @@ int mainMasterLoop (void) {
     if(start_hook) {
         start_hook();
     }
+    sleep(40);
 
     if(end_hook) {
         end_hook();
