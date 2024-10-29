@@ -1,8 +1,6 @@
-all:
-	gcc -c -fPIC plugin.c 
-	gcc -shared -o plugin.so plugin.o -ldl -L$(CURDIR)
+SUBDIRS = plugin
 
-clean:
-	rm -rf *.o
-	rm -rf *.so
-	rm -rf *.a
+process:
+	for plugin in $(SUBDIRS); do \
+		make -f $(MAINDIR)/contrib/$$plugin/Makefile; \
+	done

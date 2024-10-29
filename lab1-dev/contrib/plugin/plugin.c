@@ -1,5 +1,5 @@
 //test pugin source code for the first lab
-#include "../include/master.h"
+#include "../../src/include/master.h"
 #include <stdio.h>
 
 

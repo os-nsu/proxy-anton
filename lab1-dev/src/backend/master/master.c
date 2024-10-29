@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 char *mkPuginPath(char* execPath, const char *pluginRelPath) {
     char * resultPath = (char *)malloc(sizeof(char) * (strlen(execPath) - 4 + strlen(pluginRelPath)));
@@ -20,7 +21,7 @@ int main(int argc, char *argv[]) {
     void *handle;
     char *error;
     /*TRY TO LOAD .SO FILE*/
-    const char * pluginRelPath = "../contrib/plugin.so";
+    const char * pluginRelPath = "./plugins/plugin.so";
     char * pluginPath = mkPuginPath(argv[0], pluginRelPath);     
     handle = dlopen(pluginPath, RTLD_NOW | RTLD_GLOBAL);
 
@@ -44,7 +45,8 @@ int main(int argc, char *argv[]) {
 
     if (start_hook)
         start_hook();
-
+    printf("%d\n",getpid());
+    sleep(40);
     if (end_hook)
         end_hook();
 
