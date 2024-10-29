@@ -583,6 +583,7 @@ int parseConfig(char* path) {
             continue;
         }
         free(line);
+        
         /*CHECK IF COMMAND*/
         if(!strcmp(key,"group.")) {
             if(type != T_STRING || size != 1){
@@ -596,7 +597,7 @@ int parseConfig(char* path) {
         /*TRY TO ADD NEW PARAMETER*/
         int createRes = 0;
         if((createRes = createCATParameter(curGroup, key, type, size, values, NULL, NULL))) {
-            return -1;
+            printf("parameter %s was setted in flags\n", key);
         }
     }
     free(curGroup);

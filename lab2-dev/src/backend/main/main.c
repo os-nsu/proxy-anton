@@ -43,7 +43,7 @@ int parseArgs(int argc, char *argv[], Parameters *params) {
         {"plugins",required_argument, NULL, 'p'},
         {NULL,0,0,0}
     };
-    const char * shortOpts = "hclDp";
+    const char * shortOpts = "h:c:l:D:p:";
     int curOpt;
     while ((curOpt = getopt_long(argc, argv, shortOpts, longOpts, NULL)) != -1) {
         switch (curOpt) {
@@ -110,11 +110,19 @@ int main(int argc, char **argv) {
     char *executablePath = (char *)calloc(strlen(argv[0]) + 1, sizeof(char));
     strcpy(executablePath, argv[0]);
 
+
     createCATParameter("kernel", "executablePath", T_STRING, 1, (union Value *)(&executablePath), NULL, "path to executable");
-    createCATParameter("kernel", "pluginsDir", T_STRING, 1, (union Value *)(&params.pluginsPath), NULL, "path to directory with plugins");
-    createCATParameter("kernel", "configPath", T_STRING, 1, (union Value *)(&params.configPath), NULL, "path to config");
-    createCATParameter("kernel", "dataDir", T_STRING, 1, (union Value *)(&params.workDirPath), NULL, "path to data directory");
-    createCATParameter("kernel", "logsDir", T_STRING, 1, (union Value *)(&params.logPath), NULL, "path to directory with log files");  
+    if (params.pluginsPath)
+        createCATParameter("kernel", "pluginsDir", T_STRING, 1, (union Value *)(&params.pluginsPath), NULL, "path to directory with plugins");
+    if (params.configPath)
+        createCATParameter("kernel", "configPath", T_STRING, 1, (union Value *)(&params.configPath), NULL, "path to config");
+    if (params.workDirPath)
+        createCATParameter("kernel", "dataDir", T_STRING, 1, (union Value *)(&params.workDirPath), NULL, "path to data directory");
+    if (params.logPath) {
+        printf("log set!\n");
+        createCATParameter("kernel", "log_dir", T_STRING, 1, (union Value *)(&params.logPath), NULL, "path to directory with log files");
+    }
+          
     
     if (params.flags & HELP_COMMAND) {
         printHelp();

@@ -14,6 +14,7 @@
 
 #include "../../include/master.h"
 #include "../../include/config.h"
+#include "../../include/logger.h"
 #include <stdio.h>
 #include <dlfcn.h>
 #include <string.h>
@@ -29,7 +30,6 @@ int freePlugins(struct PluginsStack *stack);
 int pushPlugin(struct PluginsStack *stack, void *plugin, char *name);
 struct Plugin popPlugin(struct PluginsStack *stack);
 struct Plugin getPlugin(struct PluginsStack *stack, char *name);
-char *mkLogPath(const char *mainDir);
 char *mkConfigPath(const char *mainDir);
 char *mkPluginPath(const char *fileName, const char *pluginsDir);
 int loadPlugins(CATFollower *libsList, char *pluginsDir, struct PluginsStack *stack);
@@ -135,32 +135,6 @@ struct InitInfoData {
     struct PluginsStack *plugins;
 };
 
-/*!
-    \brief make loggerPath using mainDir
-    \param[in] mainDir path to main proxy directory
-    \return loggerPath if success, NULL else
-*/
-char *mkLogPath(const char *mainDir) {
-    if (!mainDir) {
-        return NULL;
-    }
-    
-    /*DEFINE LOG FILE NAME*/
-    char *logFileName;
-    const char *c = mainDir;
-    while (*c) {
-        c++;
-    }
-    
-    if (*(--c) == '/') {
-        logFileName = "proxy.log";
-    } else {
-        logFileName = "/proxy.log";
-    }
-    
-    char *loggerPath = (char *)calloc(strlen(mainDir) + strlen(logFileName) + 1, sizeof(char));
-    return strcat(strcat(loggerPath, mainDir), logFileName);
-}
 
 /*!
     \brief make path for config using mainDir
@@ -292,12 +266,19 @@ int launch(InitInfo *initInfo) {
         free(configPath);
     }
 
-
+    printf("%s\n",configPathFlwr.data->strf); //delete
     //PARSE CONFIG
 
     if(parseConfig(configPathFlwr.data->strf)) {
-        return -1;
+        fprintf(stdout, "config \"%s\" does not exist in %s\n",configPathFlwr.data->strf, dataDirFlwr.data->strf); //delete;
     }
+    
+
+    /*INIT LOGGER*/
+    if (initLogger()) {
+        fprintf(stderr, "error occurred while initialized logger");
+    }
+
     
     /*Read plugin list*/
     CATFollower contribLibs;
@@ -310,6 +291,9 @@ int launch(InitInfo *initInfo) {
         }
     }
 
+
+    
+
     removeFollowerFromCAT("kernel", "dataDir", &dataDirFlwr);
     removeFollowerFromCAT("kernel", "pluginsDir", &pluginsDirFlwr);
     removeFollowerFromCAT("kernel", "configPath", &configPathFlwr);
@@ -320,6 +304,7 @@ int launch(InitInfo *initInfo) {
 
 int exitMainLoop (InitInfo *initInfo) {
     freePlugins(initInfo->plugins);
+    closeLogSession();
     return 0;
 }
 
@@ -372,8 +357,10 @@ int mainMasterLoop (void) {
     if(start_hook) {
         start_hook();
     }
-    sleep(40);
 
+    elog(LOG_INFO, "main loop started!");
+    elog(LOG_INFO, "main loop finished!");
+    sleep(40);
     if(end_hook) {
         end_hook();
     }

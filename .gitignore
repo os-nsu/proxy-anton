@@ -2,3 +2,4 @@
 doxygen
 install
 *.log
+*.conf

@@ -355,7 +355,7 @@ int launch(InitInfo *initInfo) {
     }
 
     if(parseConfig(initInfo->configPath)) {
-        return -1;
+        fprintf(stderr, "config does not exist");
     }
     
     /*Read plugin list*/
