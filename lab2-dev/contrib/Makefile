@@ -1,4 +1,4 @@
-SUBDIRS = testPlugin
+SUBDIRS = testPlugin copyPlugin
 
 process:
 	for plugin in $(SUBDIRS); do \
