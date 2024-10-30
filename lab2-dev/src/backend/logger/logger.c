@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <time.h>
 
 /*STRUCT ADVERTISEMENTS*/
 struct LoggerData;
@@ -31,6 +32,7 @@ int openLogSession(void);
 int closeLogSession(void);
 int destructLogger(void);
 int checkLogSession(void);
+int elog(enum LogLevel lvl, char *format, ...);
 int logMsg(enum LogLevel lvl, enum LogPart part, char *format, ...);
 int logReport(enum LogLevel lvl, char *primary, char *detail, char *hint, ...);
 
@@ -386,8 +388,9 @@ int elog(enum LogLevel lvl, char *format, ...) {
     }
 
     long beginMsg = ftell(mainLogger.session);
-
-    fprintf(mainLogger.session, "%s", msgLvl);
+    time_t mytime = time(NULL);
+    struct tm *now = localtime(&mytime);
+    fprintf(mainLogger.session, "%d.%d.%d %d:%d:%d %s file:%s string:%d |",now->tm_mday, now->tm_mon + 1, now->tm_year + 1900, now->tm_hour, now->tm_min, now->tm_sec, msgLvl,__FILE__,__LINE__);
     va_list ptr;
     va_start(ptr, format);
     vfprintf(mainLogger.session, format, ptr);
